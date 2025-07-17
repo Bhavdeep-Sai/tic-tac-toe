@@ -6,14 +6,19 @@ import { useNavigate } from 'react-router-dom';
 const GameBoard = () => {
   const navigate = useNavigate()
   const { user } = useAuth();
-  const { 
-    game, 
-    makeMove, 
+  const {
+    game,
+    makeMove,
     leaveGame,
+    forfeitGame,
+    requestRematch,
+    acceptRematch,
+    declineRematch,
     isConnected,
-    inviteCode // Add this from context
+    inviteCode,
+    rematchRequest
   } = useGame();
-  
+
   const [notification, setNotification] = useState(null);
 
   // Get current player info
@@ -21,6 +26,12 @@ const GameBoard = () => {
   const opponent = game?.players?.find(p => p.userId !== user?.id);
   const isCurrentUserTurn = game?.currentPlayer === currentUserPlayer?.symbol;
   const isGameActive = game?.gameStatus === 'playing';
+  const isGameFinished = game?.gameStatus === 'finished';
+
+  // Check rematch status
+  const isRematchRequested = rematchRequest?.status === 'pending';
+  const isUserRequester = rematchRequest?.requesterId === user?.id;
+  const isUserResponder = rematchRequest?.responderId === user?.id;
 
   // Show notification helper
   const showNotification = (message, type = 'info') => {
@@ -39,7 +50,7 @@ const GameBoard = () => {
   // Copy invite code to clipboard
   const copyInviteCode = async () => {
     if (!inviteCode) return;
-    
+
     try {
       await navigator.clipboard.writeText(inviteCode);
       showNotification('Invite code copied to clipboard!', 'success');
@@ -55,18 +66,43 @@ const GameBoard = () => {
     }
   };
 
+  // Handle forfeit
+  const handleForfeit = () => {
+    if (window.confirm('Are you sure you want to forfeit this game?')) {
+      forfeitGame();
+    }
+  };
+
+  // Handle rematch request
+  const handleRequestRematch = () => {
+    requestRematch();
+    showNotification('Rematch requested!', 'info');
+  };
+
+  // Handle accept rematch
+  const handleAcceptRematch = () => {
+    acceptRematch();
+    showNotification('Rematch accepted!', 'success');
+  };
+
+  // Handle decline rematch
+  const handleDeclineRematch = () => {
+    declineRematch();
+    showNotification('Rematch declined', 'info');
+  };
+
   // Get cell classes based on state
   const getCellClasses = (position) => {
-    const baseClasses = 'w-full h-full flex items-center justify-center text-4xl font-bold cursor-pointer transition-all duration-200 hover:bg-gray-100 border-2 border-gray-300';
-    
+    const baseClasses = 'w-full h-full flex items-center justify-center text-4xl font-bold cursor-pointer transition-all duration-200 hover:bg-gray-100 border-2 border-gray-400';
+
     if (game?.board[position] !== '') {
       return `${baseClasses} cursor-not-allowed`;
     }
-    
+
     if (!isGameActive || !isCurrentUserTurn) {
-      return `${baseClasses} cursor-not-allowed opacity-50`;
+      return `${baseClasses} cursor-not-allowed opacity-10`;
     }
-    
+
     return `${baseClasses} hover:bg-blue-50 hover:border-blue-300`;
   };
 
@@ -80,35 +116,12 @@ const GameBoard = () => {
     return game?.winningCombination?.includes(position);
   };
 
-  // Get game status text
-  const getGameStatusText = () => {
-    if (!game) return 'No game active';
-    
-    if (game.gameStatus === 'waiting') {
-      return 'Waiting for opponent...';
-    }
-    
-    if (game.gameStatus === 'finished') {
-      if (game.winner === 'draw') {
-        return 'Game ended in a draw!';
-      }
-      const winnerPlayer = game.players.find(p => p.symbol === game.winner);
-      const isUserWinner = winnerPlayer?.userId === user?.id;
-      return isUserWinner ? 'You won! 🎉' : `${winnerPlayer?.username} won!`;
-    }
-    
-    if (isCurrentUserTurn) {
-      return "Your turn";
-    }
-    
-    return `${opponent?.username}'s turn`;
-  };
 
   // Get board grid classes based on size
   const getBoardGridClasses = () => {
     const size = game?.boardSize || 3;
     const baseClasses = 'grid gap-2 mx-auto';
-    
+
     switch (size) {
       case 3:
         return `${baseClasses} grid-cols-3 w-80 h-80`;
@@ -136,17 +149,16 @@ const GameBoard = () => {
     <div className="max-w-6xl mx-auto p-4">
       {/* Notification */}
       {notification && (
-        <div className={`mb-4 rounded-lg p-4 ${
-          notification.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+        <div className={`mb-4 rounded-lg p-4 ${notification.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
           notification.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
-          'bg-blue-50 border border-blue-200 text-blue-800'
-        }`}>
+            'bg-blue-50 border border-blue-200 text-blue-800'
+          }`}>
           <div className="flex items-center space-x-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d={notification.type === 'success' ? "M5 13l4 4L19 7" : 
-                   notification.type === 'error' ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" :
-                   "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d={notification.type === 'success' ? "M5 13l4 4L19 7" :
+                  notification.type === 'error' ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" :
+                    "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"} />
             </svg>
             <span className="font-medium">{notification.message}</span>
           </div>
@@ -157,19 +169,29 @@ const GameBoard = () => {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-          <span className="text-sm text-gray-600">
+          <span className={`text-sm ${isConnected ? 'text-black' : 'text-white'}`}>
             {isConnected ? 'Connected' : 'Disconnected'}
           </span>
         </div>
-        <button
-          onClick={()=>{
-            leaveGame();
-            navigate('/')
-          }}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-        >
-          Leave Game
-        </button>
+        <div className="flex space-x-2">
+          {isGameActive && (
+            <button
+              onClick={handleForfeit}
+              className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors"
+            >
+              Give up
+            </button>
+          )}
+          <button
+            onClick={() => {
+              leaveGame();
+              navigate('/')
+            }}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          >
+            Leave Game
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -177,7 +199,7 @@ const GameBoard = () => {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-md p-6 mb-4">
             <h2 className="text-xl font-bold mb-4">Game Info</h2>
-            
+
             {/* Private Room Invite Code */}
             {inviteCode && game.gameStatus === 'waiting' && (
               <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -201,12 +223,62 @@ const GameBoard = () => {
               </div>
             )}
 
-            {/* Game Status */}
-            <div className="mb-4">
-              <p className="text-lg font-semibold text-center py-2 px-4 bg-gray-100 rounded">
-                {getGameStatusText()}
-              </p>
-            </div>
+
+            {/* Rematch Section */}
+            {isGameFinished && currentUserPlayer && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-semibold text-blue-800 mb-2">
+                  Rematch
+                </h3>
+                <div className="space-y-2">
+                  {!isRematchRequested ? (
+                    // No rematch request - show request button
+                    <button
+                      onClick={handleRequestRematch}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm font-medium transition-all"
+                    >
+                      Request Rematch
+                    </button>
+                  ) : (
+                    // Rematch request exists
+                    <div className="space-y-2">
+                      {isUserRequester ? (
+                        // User is the requester - waiting for response
+                        <div className="text-center">
+                          <p className="text-sm text-blue-600 mb-2">
+                            ⏳ Waiting for {opponent?.username} to respond...
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            You requested a rematch
+                          </p>
+                        </div>
+                      ) : isUserResponder ? (
+                        // User is the responder - show accept/decline buttons
+                        <div className="space-y-2">
+                          <p className="text-sm text-blue-600 mb-2 text-center">
+                            {rematchRequest.requesterName} wants a rematch!
+                          </p>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={handleAcceptRematch}
+                              className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm font-medium transition-all"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={handleDeclineRematch}
+                              className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm font-medium transition-all"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Players */}
             <div className="space-y-3">
@@ -219,9 +291,17 @@ const GameBoard = () => {
                     <span className="font-medium">{player.username}</span>
                     {player.userId === user?.id && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">You</span>}
                   </div>
-                  {game.currentPlayer === player.symbol && isGameActive && (
-                    <div className="text-green-600 font-semibold">Active</div>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {game.currentPlayer === player.symbol && isGameActive && (
+                      <div className="text-green-600 font-semibold">Turn</div>
+                    )}
+                    {player.disconnected && (
+                      <div className="text-red-600 text-sm">Disconnected</div>
+                    )}
+                    {isRematchRequested && rematchRequest.requesterId === player.userId && (
+                      <div className="text-blue-600 text-sm">🔄 Requested</div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

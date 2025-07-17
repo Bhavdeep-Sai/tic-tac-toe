@@ -76,9 +76,9 @@ const gameSocket = (io) => {
         // Store in memory for quick access
         activeGames.set(roomId, {
           ...gameData,
-          board: new Array(boardSize * boardSize).fill(''),
-          currentPlayer: 'X',
-          gameStatus: 'waiting',
+          board: new Array(boardSize * boardSize).fill(""),
+          currentPlayer: "X",
+          gameStatus: "waiting",
           moves: [],
           spectators: [],
           sockets: [socket.id],
@@ -110,7 +110,7 @@ const gameSocket = (io) => {
           game = {
             ...dbGame.toObject(),
             sockets: [],
-            spectators: dbGame.spectators || []
+            spectators: dbGame.spectators || [],
           };
           activeGames.set(roomId, game);
         }
@@ -136,12 +136,14 @@ const gameSocket = (io) => {
           }
 
           // Check if user is already in the game (reconnection case)
-          const existingPlayerIndex = game.players.findIndex(p => p.userId === socket.userId);
+          const existingPlayerIndex = game.players.findIndex(
+            (p) => p.userId === socket.userId
+          );
           if (existingPlayerIndex !== -1) {
             // Update existing player's socket ID
             game.players[existingPlayerIndex].socketId = socket.id;
             game.players[existingPlayerIndex].disconnected = false;
-            
+
             socket.emit("room_joined", { game, roomId });
             socket.to(roomId).emit("player_reconnected", {
               username: socket.username,
@@ -172,13 +174,13 @@ const gameSocket = (io) => {
             }
 
             socket.emit("room_joined", { game, roomId });
-            
+
             if (game.gameStatus === "playing") {
               io.to(roomId).emit("game_started", { game });
             } else {
               socket.to(roomId).emit("player_joined", {
                 username: socket.username,
-                playersCount: game.players.length
+                playersCount: game.players.length,
               });
             }
           }
@@ -247,7 +249,7 @@ const gameSocket = (io) => {
         if (!socket.isGuest) {
           await Game.findOneAndUpdate({ roomId }, game);
         }
-        
+
         activeGames.set(roomId, game);
 
         // Emit to all clients in room
@@ -312,8 +314,8 @@ const gameSocket = (io) => {
               },
             ],
             gameStatus: "playing",
-            board: new Array(boardSize * boardSize).fill(''),
-            currentPlayer: 'X',
+            board: new Array(boardSize * boardSize).fill(""),
+            currentPlayer: "X",
             moves: [],
             spectators: [],
           };
@@ -382,7 +384,7 @@ const gameSocket = (io) => {
     socket.on("reconnect_game", async (data) => {
       try {
         const { roomId } = data;
-        
+
         let game = activeGames.get(roomId);
         if (!game) {
           const dbGame = await Game.findOne({ roomId });
@@ -392,14 +394,17 @@ const gameSocket = (io) => {
           game = {
             ...dbGame.toObject(),
             sockets: [],
-            spectators: dbGame.spectators || []
+            spectators: dbGame.spectators || [],
           };
           activeGames.set(roomId, game);
         }
 
         // Find player in game
-        const playerIndex = game.players.findIndex(p => p.userId === socket.userId);
-        const spectatorIndex = game.spectators?.findIndex(s => s.userId === socket.userId) || -1;
+        const playerIndex = game.players.findIndex(
+          (p) => p.userId === socket.userId
+        );
+        const spectatorIndex =
+          game.spectators?.findIndex((s) => s.userId === socket.userId) || -1;
 
         if (playerIndex !== -1) {
           // Update player socket ID
@@ -407,7 +412,7 @@ const gameSocket = (io) => {
           game.players[playerIndex].disconnected = false;
           socket.join(roomId);
           socket.roomId = roomId;
-          
+
           socket.emit("reconnected_to_game", { game });
           socket.to(roomId).emit("player_reconnected", {
             username: socket.username,
@@ -417,13 +422,15 @@ const gameSocket = (io) => {
           game.spectators[spectatorIndex].socketId = socket.id;
           socket.join(roomId);
           socket.roomId = roomId;
-          
+
           socket.emit("reconnected_as_spectator", { game });
           socket.to(roomId).emit("spectator_reconnected", {
             username: socket.username,
           });
         } else {
-          return socket.emit("error", { message: "Not authorized to rejoin this game" });
+          return socket.emit("error", {
+            message: "Not authorized to rejoin this game",
+          });
         }
 
         activeGames.set(roomId, game);
@@ -437,7 +444,9 @@ const gameSocket = (io) => {
       console.log("User disconnected:", socket.id);
 
       // Remove from matchmaking queue
-      const queueIndex = matchmakingQueue.findIndex(p => p.socketId === socket.id);
+      const queueIndex = matchmakingQueue.findIndex(
+        (p) => p.socketId === socket.id
+      );
       if (queueIndex !== -1) {
         matchmakingQueue.splice(queueIndex, 1);
       }
@@ -460,9 +469,12 @@ const gameSocket = (io) => {
 
       // Clean up active games if needed
       for (const [roomId, game] of activeGames.entries()) {
-        const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
-        const spectatorIndex = game.spectators?.findIndex(s => s.socketId === socket.id) || -1;
-        
+        const playerIndex = game.players.findIndex(
+          (p) => p.socketId === socket.id
+        );
+        const spectatorIndex =
+          game.spectators?.findIndex((s) => s.socketId === socket.id) || -1;
+
         if (playerIndex !== -1 || spectatorIndex !== -1) {
           // Mark player as disconnected but don't remove from game
           // They might reconnect
@@ -472,7 +484,7 @@ const gameSocket = (io) => {
           if (spectatorIndex !== -1) {
             game.spectators.splice(spectatorIndex, 1);
           }
-          
+
           activeGames.set(roomId, game);
           break;
         }
@@ -489,13 +501,15 @@ const gameSocket = (io) => {
           return socket.emit("error", { message: "Cannot forfeit this game" });
         }
 
-        const player = game.players.find(p => p.socketId === socket.id);
+        const player = game.players.find((p) => p.socketId === socket.id);
         if (!player) {
-          return socket.emit("error", { message: "You are not a player in this game" });
+          return socket.emit("error", {
+            message: "You are not a player in this game",
+          });
         }
 
         // Set winner as opponent
-        const opponent = game.players.find(p => p.socketId !== socket.id);
+        const opponent = game.players.find((p) => p.socketId !== socket.id);
         game.gameStatus = "finished";
         game.winner = opponent.symbol;
         game.finishedAt = new Date();
@@ -535,9 +549,11 @@ const gameSocket = (io) => {
           return socket.emit("error", { message: "Cannot request rematch" });
         }
 
-        const player = game.players.find(p => p.socketId === socket.id);
+        const player = game.players.find((p) => p.socketId === socket.id);
         if (!player) {
-          return socket.emit("error", { message: "You are not a player in this game" });
+          return socket.emit("error", {
+            message: "You are not a player in this game",
+          });
         }
 
         // Initialize rematch requests if not exists
@@ -547,8 +563,8 @@ const gameSocket = (io) => {
 
         game.rematchRequests[player.userId] = true;
 
-        const allPlayersWantRematch = game.players.every(p => 
-          game.rematchRequests[p.userId] === true
+        const allPlayersWantRematch = game.players.every(
+          (p) => game.rematchRequests[p.userId] === true
         );
 
         if (allPlayersWantRematch) {
@@ -557,14 +573,14 @@ const gameSocket = (io) => {
           const newGameData = {
             roomId: newRoomId,
             boardSize: game.boardSize,
-            players: game.players.map(p => ({
+            players: game.players.map((p) => ({
               ...p,
               // Switch symbols for rematch
-              symbol: p.symbol === "X" ? "O" : "X"
+              symbol: p.symbol === "X" ? "O" : "X",
             })),
             gameStatus: "playing",
-            board: new Array(game.boardSize * game.boardSize).fill(''),
-            currentPlayer: 'X',
+            board: new Array(game.boardSize * game.boardSize).fill(""),
+            currentPlayer: "X",
             moves: [],
             spectators: game.spectators || [],
           };
@@ -578,7 +594,7 @@ const gameSocket = (io) => {
 
           // Move all players to new room
           const oldRoomId = roomId;
-          game.players.forEach(p => {
+          game.players.forEach((p) => {
             const playerSocket = io.sockets.sockets.get(p.socketId);
             if (playerSocket) {
               playerSocket.leave(oldRoomId);
@@ -589,7 +605,7 @@ const gameSocket = (io) => {
 
           // Move spectators to new room
           if (game.spectators) {
-            game.spectators.forEach(s => {
+            game.spectators.forEach((s) => {
               const spectatorSocket = io.sockets.sockets.get(s.socketId);
               if (spectatorSocket) {
                 spectatorSocket.leave(oldRoomId);
@@ -607,14 +623,112 @@ const gameSocket = (io) => {
             game: newGameData,
           });
         } else {
-          activeGames.set(roomId, game);
+          const responder = game.players.find(
+            (p) => p.userId !== player.userId
+          );
           socket.to(roomId).emit("rematch_requested", {
-            username: player.username,
+            requesterId: player.userId,
+            requesterName: player.username,
+            responderId: responder?.userId,
+            responderName: responder?.username,
           });
         }
       } catch (error) {
         socket.emit("error", { message: "Failed to request rematch" });
       }
+    });
+
+    // Accept rematch
+    socket.on("accept_rematch", (data) => {
+      const { roomId } = data;
+      const game = activeGames.get(roomId);
+      if (!game || !game.rematchRequests) return;
+
+      // Mark this user as accepted
+      game.rematchRequests[socket.userId] = true;
+
+      // Check if all players have accepted
+      const allAccepted = game.players.every(
+        (p) => game.rematchRequests[p.userId] === true
+      );
+
+      if (allAccepted) {
+        // Start new game (same as in request_rematch)
+        const newRoomId = uuidv4();
+        const newGameData = {
+          roomId: newRoomId,
+          boardSize: game.boardSize,
+          players: game.players.map((p) => ({
+            ...p,
+            symbol: p.symbol === "X" ? "O" : "X",
+          })),
+          gameStatus: "playing",
+          board: new Array(game.boardSize * game.boardSize).fill(""),
+          currentPlayer: "X",
+          moves: [],
+          spectators: game.spectators || [],
+        };
+
+        // Save to database if not guest
+        if (!socket.isGuest) {
+          const newGame = new Game(newGameData);
+          newGame.initializeBoard();
+          newGame.save();
+        }
+
+        // Move all players to new room
+        const oldRoomId = roomId;
+        game.players.forEach((p) => {
+          const playerSocket = io.sockets.sockets.get(p.socketId);
+          if (playerSocket) {
+            playerSocket.leave(oldRoomId);
+            playerSocket.join(newRoomId);
+            playerSocket.roomId = newRoomId;
+          }
+        });
+
+        // Move spectators to new room
+        if (game.spectators) {
+          game.spectators.forEach((s) => {
+            const spectatorSocket = io.sockets.sockets.get(s.socketId);
+            if (spectatorSocket) {
+              spectatorSocket.leave(oldRoomId);
+              spectatorSocket.join(newRoomId);
+              spectatorSocket.roomId = newRoomId;
+            }
+          });
+        }
+
+        activeGames.set(newRoomId, newGameData);
+        activeGames.delete(oldRoomId);
+
+        io.to(newRoomId).emit("rematch_started", {
+          roomId: newRoomId,
+          game: newGameData,
+        });
+      } else {
+        // Notify both players that rematch is accepted by one
+        io.to(roomId).emit("rematch_accepted", {
+          accepterId: socket.userId,
+          accepterName: socket.username,
+        });
+      }
+    });
+
+    // Decline rematch
+    socket.on("decline_rematch", (data) => {
+      const { roomId } = data;
+      const game = activeGames.get(roomId);
+      if (!game) return;
+
+      // Notify both players
+      io.to(roomId).emit("rematch_declined", {
+        declinerId: socket.userId,
+        declinerName: socket.username,
+      });
+
+      // Reset rematch requests
+      game.rematchRequests = {};
     });
   });
 };
@@ -626,8 +740,13 @@ async function updatePlayerStats(players, winner, forfeitedBy = null) {
       try {
         const user = await User.findById(player.userId);
         if (user) {
-          user.stats = user.stats || { wins: 0, losses: 0, draws: 0, totalGames: 0 };
-          
+          user.stats = user.stats || {
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            totalGames: 0,
+          };
+
           if (winner === "draw") {
             user.stats.draws += 1;
           } else if (winner === player.symbol) {
@@ -635,18 +754,21 @@ async function updatePlayerStats(players, winner, forfeitedBy = null) {
           } else {
             user.stats.losses += 1;
           }
-          
+
           user.stats.totalGames += 1;
-          
+
           // Additional penalty for forfeit
           if (forfeitedBy === player.userId) {
             user.stats.forfeits = (user.stats.forfeits || 0) + 1;
           }
-          
+
           await user.save();
         }
       } catch (error) {
-        console.error(`Failed to update stats for user ${player.userId}:`, error);
+        console.error(
+          `Failed to update stats for user ${player.userId}:`,
+          error
+        );
       }
     }
   }

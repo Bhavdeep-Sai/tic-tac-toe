@@ -81,29 +81,6 @@ const Header = () => {
               <h1 className="text-2xl font-bold text-gray-900">TicTacToe Pro</h1>
             </div>
             
-            {/* Navigation Links - Desktop */}
-            <nav className="hidden md:flex space-x-6">
-              <button
-                onClick={() => handleNavigation('/')}
-                className={`font-medium transition-colors ${
-                  isActive('/') || isActive('/') 
-                    ? 'text-blue-600 border-b-2 border-blue-600' 
-                    : 'text-gray-700 hover:text-blue-600'
-                }`}
-              >
-                Play
-              </button>
-              <button
-                onClick={() => handleNavigation('/leaderboard')}
-                className={`font-medium transition-colors ${
-                  isActive('/leaderboard') 
-                    ? 'text-blue-600 border-b-2 border-blue-600' 
-                    : 'text-gray-700 hover:text-blue-600'
-                }`}
-              >
-                Leaderboard
-              </button>
-            </nav>
           </div>
 
           {/* Center - Game Status */}
@@ -200,6 +177,12 @@ const Header = () => {
                       Profile
                     </button>
                     <button
+                      onClick={() => handleNavigation('/leaderboard')}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Leaderboard
+                    </button>
+                    <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                     >
@@ -209,49 +192,10 @@ const Header = () => {
                 )}
               </div>
             )}
-
-            {/* Mobile Menu Button */}
-            <button 
-              className="md:hidden p-2 rounded-md text-gray-700 hover:bg-gray-100"
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              aria-expanded={showMobileMenu}
-              aria-label="Toggle mobile menu"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Navigation */}
-      {showMobileMenu && (
-        <div className="md:hidden bg-gray-50 border-t">
-          <nav className="px-4 py-2 space-y-1">
-            <button
-              onClick={() => handleNavigation('/')}
-              className={`block w-full text-left py-2 font-medium ${
-                isActive('/') || isActive('/') 
-                  ? 'text-blue-600' 
-                  : 'text-gray-700 hover:text-blue-600'
-              }`}
-            >
-              Play
-            </button>
-            <button
-              onClick={() => handleNavigation('/leaderboard')}
-              className={`block w-full text-left py-2 font-medium ${
-                isActive('/leaderboard') 
-                  ? 'text-blue-600' 
-                  : 'text-gray-700 hover:text-blue-600'
-              }`}
-            >
-              Leaderboard
-            </button>
-          </nav>
-        </div>
-      )}
     </header>
   );
 };
