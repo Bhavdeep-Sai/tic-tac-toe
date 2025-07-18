@@ -131,6 +131,21 @@ export const AuthProvider = ({ children }) => {
     toast.success('Playing as guest!');
   };
 
+  const loginAsGuest = () => {
+    // Generate a random guest ID and username
+    const guestId = 'guest_' + Math.random().toString(36).substring(2, 10);
+    const guestUser = {
+      id: guestId,
+      username: `Guest${Math.floor(1000 + Math.random() * 9000)}`,
+      isGuest: true,
+      stats: { wins: 0, losses: 0, draws: 0 }
+    };
+    setUser(guestUser);
+    setIsGuest(true);
+    localStorage.removeItem('token'); // Ensure no token is set
+    return true;
+  };
+
   const logout = () => {
     if (typeof window !== 'undefined') {
       window.localStorage?.removeItem('token');
@@ -165,6 +180,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     playAsGuest,
+    loginAsGuest,
     updateUserStats
   };
 

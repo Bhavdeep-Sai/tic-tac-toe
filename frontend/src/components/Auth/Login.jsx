@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, LogIn, Eye, EyeOff, FileWarning, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -10,7 +11,7 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loginAsGuest } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -23,7 +24,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     const success = await login(formData.email, formData.password);
     if (success) {
       navigate('/');
@@ -76,7 +77,7 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                className="cursor-pointer absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -86,7 +87,7 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full cursor-pointer bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -107,11 +108,31 @@ const Login = () => {
             </Link>
           </p>
         </div>
+        <div className='w-full flex gap-2 mt-2 items-center'>
+          <div className='w-1/2 h-[1px] bg-gray-200' />
+          <div className='text-gray-200 text-xl'>Or</div>
+          <div className='w-1/2 h-[1px] bg-gray-200' />
+        </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-400">
-            Demo credentials: test@example.com / password123
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              loginAsGuest();
+              toast.success('Logged in as Guest!');
+              navigate('/');
+            }}
+            className="w-full mt-4 bg-gradient-to-r cursor-pointer from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-800 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            Play as Guest
+          </button>
+          <p className="mt-4 flex items-center gap-2 justify-center rounded-md bg-white/90 backdrop-blur-lg px-4 py-2 text-sm text-red-700">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <span>
+              Some features are unavailable in Guest Mode.
+            </span>
           </p>
+
         </div>
       </div>
     </div>

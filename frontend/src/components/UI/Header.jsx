@@ -19,6 +19,7 @@ const Header = () => {
         leaveGame();
       }
       
+      
       // Then logout
       logout();
       setShowUserMenu(false);

@@ -7,19 +7,19 @@ import api from '../../utils/api';
 const Matchmaking = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { 
-    findMatch, 
-    cancelMatchmaking, 
-    createRoom, 
+  const {
+    findMatch,
+    cancelMatchmaking,
+    createRoom,
     joinRoom,
     leaveGame,
-    isInQueue, 
-    queuePosition, 
+    isInQueue,
+    queuePosition,
     game,
     inviteCode,
-    isConnected 
+    isConnected
   } = useGame();
-  
+
   const [selectedBoardSize, setSelectedBoardSize] = useState(3);
   const [gameMode, setGameMode] = useState('matchmaking'); // matchmaking, private, join
   const [inputInviteCode, setInputInviteCode] = useState('');
@@ -62,7 +62,7 @@ const Matchmaking = () => {
     setIsCreatingRoom(true);
     createRoom(selectedBoardSize, true);
     showNotification('Creating private room...', 'info');
-    
+
     // Reset loading state after a reasonable time
     setTimeout(() => {
       setIsCreatingRoom(false);
@@ -74,14 +74,14 @@ const Matchmaking = () => {
       showNotification('Please enter an invite code', 'error');
       return;
     }
-  
+
     if (!isConnected) {
       showNotification('Please check your connection', 'error');
       return;
     }
-  
+
     setIsJoiningRoom(true);
-  
+
     try {
       const response = await api.post('/game/join-private', {
         inviteCode: inputInviteCode.trim().toUpperCase()
@@ -179,7 +179,7 @@ const Matchmaking = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">Find a Game</h1>
         <p className="text-gray-300">Choose your preferred way to play</p>
@@ -187,17 +187,16 @@ const Matchmaking = () => {
 
       {/* Notification */}
       {notification && (
-        <div className={`mb-6 rounded-lg p-4 ${
-          notification.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
-          notification.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
-          'bg-blue-50 border border-blue-200 text-blue-800'
-        }`}>
+        <div className={`mb-6 rounded-lg p-4 ${notification.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+            notification.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
+              'bg-blue-50 border border-blue-200 text-blue-800'
+          }`}>
           <div className="flex items-center space-x-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d={notification.type === 'success' ? "M5 13l4 4L19 7" : 
-                   notification.type === 'error' ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" :
-                   "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d={notification.type === 'success' ? "M5 13l4 4L19 7" :
+                  notification.type === 'error' ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" :
+                    "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"} />
             </svg>
             <span className="font-medium">{notification.message}</span>
           </div>
@@ -225,13 +224,12 @@ const Matchmaking = () => {
             <button
               key={size}
               onClick={() => setSelectedBoardSize(size)}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                selectedBoardSize === size
+              className={`p-2 lg:p-4 rounded-lg border-2 transition-all ${selectedBoardSize === size
                   ? 'border-blue-500 bg-blue-50 text-blue-700'
                   : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              }`}
+                }`}
             >
-              <div className="text-2xl font-bold">{getBoardSizeLabel(size)}</div>
+              <div className="lg:text-2xl font-bold">{getBoardSizeLabel(size)}</div>
               <div className="text-sm text-gray-600 mt-1">
                 {size === 3 ? 'Classic' : size === 4 ? 'Medium' : 'Large'}
               </div>
@@ -242,7 +240,7 @@ const Matchmaking = () => {
 
       {/* Game Mode Selection */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex space-x-1 mb-6">
+        <div className="flex flex-col gap-2 item-center justify-center m-auto lg:flex-row space-x-1 mb-6">
           {[
             { key: 'matchmaking', label: 'Quick Match' },
             { key: 'private', label: 'Private Room' },
@@ -251,11 +249,10 @@ const Matchmaking = () => {
             <button
               key={mode.key}
               onClick={() => setGameMode(mode.key)}
-              className={`flex-1 py-3 px-4 text-center font-medium rounded-lg transition-all ${
-                gameMode === mode.key
+              className={`flex-1 py-3 px-4 text-center  font-medium rounded-lg transition-all ${gameMode === mode.key
                   ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               {mode.label}
             </button>
@@ -302,7 +299,7 @@ const Matchmaking = () => {
             <p className="text-gray-600 mb-4">
               Create a private room and invite friends
             </p>
-            
+
             <button
               onClick={handleCreatePrivateRoom}
               disabled={!isConnected || isCreatingRoom}
@@ -327,13 +324,13 @@ const Matchmaking = () => {
             <p className="text-gray-600 mb-4">
               Enter the invite code your friend shared with you
             </p>
-            <div className="flex justify-center space-x-2 mb-4">
+            <div className="flex lg:flex-row flex-col justify-center space-x-4 mb-4">
               <input
                 type="text"
                 value={inputInviteCode}
                 onChange={(e) => setInputInviteCode(e.target.value.toUpperCase())}
                 placeholder="Enter invite code"
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center"
+                className="w-full lg:w-1/4 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center"
                 maxLength={8}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
@@ -341,13 +338,15 @@ const Matchmaking = () => {
                   }
                 }}
               />
-              <button
-                onClick={handleJoinPrivateRoom}
-                disabled={!inputInviteCode.trim() || !isConnected || isJoiningRoom}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-medium transition-all"
-              >
-                {isJoiningRoom ? 'Joining...' : 'Join Room'}
-              </button>
+              <div className='flex justify-end lg:block mt-2 lg:mt-0'>
+                <button
+                  onClick={handleJoinPrivateRoom}
+                  disabled={!inputInviteCode.trim() || !isConnected || isJoiningRoom}
+                  className="w-3/5 lg:w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-medium transition-all"
+                >
+                  {isJoiningRoom ? 'Joining...' : 'Join Room'}
+                </button>
+              </div>
             </div>
 
             {isJoiningRoom && (

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { User, Mail, Lock, UserPlus, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -14,7 +15,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { register, loginAsGuest } = useAuth();
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -74,13 +75,13 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     setLoading(true);
-    
+
     const success = await register(formData.username, formData.email, formData.password);
     if (success) {
       navigate('/');
@@ -91,9 +92,36 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-md border border-white/20">
-        <div className="text-center mb-8">
+        <div className="text-center mb-4">
           <h1 className="text-3xl font-bold text-white mb-2">Join the Game</h1>
-          <p className="text-gray-300">Create your account to start playing</p>
+          <div>
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  loginAsGuest();
+                  toast.success('Logged in as Guest!');
+                  navigate('/');
+                }}
+                className="w-full mt-4 bg-gradient-to-r cursor-pointer from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-800 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                Play as Guest
+              </button>
+              <p className="mt-4 flex items-center gap-2 justify-center rounded-md bg-white/90 backdrop-blur-lg px-4 py-2 text-sm text-red-700">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <span>
+                  Some features are unavailable in Guest Mode.
+                </span>
+              </p>
+            </div>
+
+            <div className='w-[80%] justify-center m-auto flex gap-2 my-5 items-center'>
+              <div className='w-1/2 h-[1px] bg-gray-200' />
+              <div className='text-gray-200 text-xl'>Or</div>
+              <div className='w-1/2 h-[1px] bg-gray-200' />
+            </div>
+          </div>
+          <p className="text-xl font-medium text-white mb-2">Create your account to start playing</p>
         </div>
 
         <div className="space-y-6">
@@ -110,9 +138,8 @@ const Register = () => {
                 value={formData.username}
                 onChange={handleChange}
                 required
-                className={`w-full pl-10 pr-4 py-3 bg-white/5 border ${
-                  errors.username ? 'border-red-500' : 'border-white/10'
-                } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                className={`w-full pl-10 pr-4 py-3 bg-white/5 border ${errors.username ? 'border-red-500' : 'border-white/10'
+                  } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 placeholder="Enter your username"
                 disabled={loading}
               />
@@ -138,9 +165,8 @@ const Register = () => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className={`w-full pl-10 pr-4 py-3 bg-white/5 border ${
-                  errors.email ? 'border-red-500' : 'border-white/10'
-                } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                className={`w-full pl-10 pr-4 py-3 bg-white/5 border ${errors.email ? 'border-red-500' : 'border-white/10'
+                  } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 placeholder="Enter your email"
                 disabled={loading}
               />
@@ -166,16 +192,15 @@ const Register = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className={`w-full pl-10 pr-12 py-3 bg-white/5 border ${
-                  errors.password ? 'border-red-500' : 'border-white/10'
-                } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                className={`w-full pl-10 pr-12 py-3 bg-white/5 border ${errors.password ? 'border-red-500' : 'border-white/10'
+                  } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 placeholder="Enter your password"
                 disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                className="cursor-pointer absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
                 disabled={loading}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -202,9 +227,8 @@ const Register = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
-                className={`w-full pl-10 pr-12 py-3 bg-white/5 border ${
-                  errors.confirmPassword ? 'border-red-500' : 'border-white/10'
-                } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                className={`w-full pl-10 pr-12 py-3 bg-white/5 border ${errors.confirmPassword ? 'border-red-500' : 'border-white/10'
+                  } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 placeholder="Confirm your password"
                 disabled={loading}
               />
