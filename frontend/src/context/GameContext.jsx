@@ -14,13 +14,12 @@ export const useGame = () => {
 };
 
 export const GameProvider = ({ children }) => {
-  const { user, isGuest } = useAuth();
+  const { user } = useAuth();
   const { socket, isConnected } = useSocket(user?.id);
 
   const [game, setGame] = useState(null);
   const [isInQueue, setIsInQueue] = useState(false);
   const [queuePosition, setQueuePosition] = useState(0);
-  const [spectators, setSpectators] = useState([]);
   const [roomId, setRoomId] = useState(null);
   const [inviteCode, setInviteCode] = useState(null);
   const [rematchRequest, setRematchRequest] = useState(null);
@@ -82,25 +81,11 @@ export const GameProvider = ({ children }) => {
       toast.error(`${data.username} disconnected`);
     });
 
-    socket.on('spectator_joined', (data) => {
-      toast(`${data.username} joined as spectator`);
-    });
-
     socket.on('room_joined', (data) => {
       setGame(data.game);
       setRoomId(data.roomId);
       setRematchRequest(null); // Clear rematch request when joining room
       toast.success('Joined room successfully!');
-    });
-
-    socket.on('player_joined', (data) => {
-      toast.success(`${data.username} joined the game`);
-    });
-
-    socket.on('joined_as_spectator', (data) => {
-      setGame(data.game);
-      setRoomId(data.roomId);
-      toast.success('Joined as spectator!');
     });
 
     // Queue events
@@ -139,7 +124,7 @@ export const GameProvider = ({ children }) => {
       }
     });
 
-    socket.on('rematch_accepted', (data) => {
+    socket.on('rematch_accepted', () => {
       setRematchRequest({ ...rematchRequest, status: 'accepted' });
       toast.success('Rematch accepted! Starting new game...', { icon: '🔄' });
     });
@@ -213,10 +198,7 @@ export const GameProvider = ({ children }) => {
       socket.off('move_made');
       socket.off('game_finished');
       socket.off('player_disconnected');
-      socket.off('spectator_joined');
       socket.off('room_joined');
-      socket.off('player_joined');
-      socket.off('joined_as_spectator');
       socket.off('queued');
       socket.off('queue_updated');
       socket.off('matchmaking_cancelled');
@@ -228,7 +210,6 @@ export const GameProvider = ({ children }) => {
       socket.off('room_closed');
       socket.off('game_forfeited');
       socket.off('reconnected_to_game');
-      socket.off('reconnected_as_spectator');
       socket.off('player_reconnected');
       socket.off('player_left');
       socket.off('error');
@@ -244,9 +225,9 @@ export const GameProvider = ({ children }) => {
     }
   };
 
-  const joinRoom = (roomId, asSpectator = false) => {
+  const joinRoom = (roomId) => {
     if (socket && isConnected) {
-      socket.emit('join_room', { roomId, asSpectator });
+      socket.emit('join_room', { roomId });
       setRoomId(roomId);
     } else {
       toast.error('Not connected to server');
@@ -283,7 +264,6 @@ export const GameProvider = ({ children }) => {
     }
     setGame(null);
     setRoomId(null);
-    setSpectators([]);
     setIsInQueue(false);
     setQueuePosition(0);
     setInviteCode(null);
@@ -324,7 +304,6 @@ export const GameProvider = ({ children }) => {
     game,
     isInQueue,
     queuePosition,
-    spectators,
     roomId,
     inviteCode,
     isConnected,

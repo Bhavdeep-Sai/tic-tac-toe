@@ -9,19 +9,19 @@ const gameSchema = new mongoose.Schema({
   players: [{
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'User',
+      required: false // Allow null for guest players
     },
     username: String,
     symbol: {
       type: String,
       enum: ['X', 'O']
     },
-    socketId: String
-  }],
-  spectators: [{
-    userId: mongoose.Schema.Types.ObjectId,
-    username: String,
-    socketId: String
+    socketId: String,
+    isGuest: {
+      type: Boolean,
+      default: false
+    }
   }],
   boardSize: {
     type: Number,

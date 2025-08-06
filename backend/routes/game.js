@@ -166,12 +166,25 @@ router.get('/stats/overview', auth, async (req, res) => {
           p.userId && p.userId._id && p.userId._id.toString() === req.userId
         );
         const opponentPlayer = game.players.find(p => 
-          p.userId && p.userId._id && p.userId._id.toString() !== req.userId
+          (!p.userId && p.isGuest) || // Guest player
+          (p.userId && p.userId._id && p.userId._id.toString() !== req.userId) // Registered player
         );
+        
+        // Determine opponent name
+        let opponentName = 'Unknown';
+        if (opponentPlayer) {
+          if (opponentPlayer.isGuest) {
+            opponentName = opponentPlayer.username || 'Guest';
+          } else if (opponentPlayer.userId && opponentPlayer.userId.username) {
+            opponentName = opponentPlayer.userId.username;
+          } else {
+            opponentName = opponentPlayer.username || 'Unknown';
+          }
+        }
         
         return {
           roomId: game.roomId,
-          opponent: opponentPlayer && opponentPlayer.userId ? opponentPlayer.userId.username : 'Unknown',
+          opponent: opponentName,
           result: game.winner === 'draw' ? 'draw' : 
                   game.winner === (userPlayer ? userPlayer.symbol : null) ? 'win' : 'loss',
           boardSize: game.boardSize || 3,

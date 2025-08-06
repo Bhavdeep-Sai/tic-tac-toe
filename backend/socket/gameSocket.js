@@ -62,13 +62,22 @@ const gameSocket = (io) => {
               username: socket.username,
               symbol: "X",
               socketId: socket.id,
+              isGuest: socket.isGuest || false
             },
           ],
         };
 
-        // Only save to database if not a guest
+        // Only save to database if the creator is not a guest
         if (!socket.isGuest) {
-          const game = new Game(gameData);
+          const game = new Game({
+            ...gameData,
+            players: [{
+              userId: socket.userId,
+              username: socket.username,
+              symbol: "X",
+              isGuest: false
+            }]
+          });
           game.initializeBoard();
           await game.save();
         }
@@ -80,7 +89,6 @@ const gameSocket = (io) => {
           currentPlayer: "X",
           gameStatus: "waiting",
           moves: [],
-          spectators: [],
           sockets: [socket.id],
         });
 
@@ -99,7 +107,7 @@ const gameSocket = (io) => {
     // Join room
     socket.on("join_room", async (data) => {
       try {
-        const { roomId, asSpectator = false } = data;
+        const { roomId } = data;
 
         let game = activeGames.get(roomId);
         if (!game) {
@@ -109,8 +117,7 @@ const gameSocket = (io) => {
           }
           game = {
             ...dbGame.toObject(),
-            sockets: [],
-            spectators: dbGame.spectators || [],
+            sockets: []
           };
           activeGames.set(roomId, game);
         }
@@ -118,71 +125,64 @@ const gameSocket = (io) => {
         socket.join(roomId);
         socket.roomId = roomId;
 
-        if (asSpectator) {
-          game.spectators = game.spectators || [];
-          game.spectators.push({
-            userId: socket.userId,
-            username: socket.username,
-            socketId: socket.id,
-          });
+        if (game.players.length >= 2) {
+          return socket.emit("error", { message: "Room is full" });
+        }
 
-          socket.emit("joined_as_spectator", { game });
-          socket.to(roomId).emit("spectator_joined", {
+        // Check if user is already in the game (reconnection case)
+        const existingPlayerIndex = game.players.findIndex(
+          (p) => p.userId === socket.userId
+        );
+        if (existingPlayerIndex !== -1) {
+          // Update existing player's socket ID
+          game.players[existingPlayerIndex].socketId = socket.id;
+          game.players[existingPlayerIndex].disconnected = false;
+
+          socket.emit("room_joined", { game, roomId });
+          socket.to(roomId).emit("player_reconnected", {
             username: socket.username,
           });
         } else {
-          if (game.players.length >= 2) {
-            return socket.emit("error", { message: "Room is full" });
+          // Add new player
+          game.players.push({
+            userId: socket.userId,
+            username: socket.username,
+            symbol: "O",
+            socketId: socket.id,
+            isGuest: socket.isGuest || false
+          });
+
+          // Only start game if we have 2 players
+          if (game.players.length === 2) {
+            game.gameStatus = "playing";
           }
 
-          // Check if user is already in the game (reconnection case)
-          const existingPlayerIndex = game.players.findIndex(
-            (p) => p.userId === socket.userId
-          );
-          if (existingPlayerIndex !== -1) {
-            // Update existing player's socket ID
-            game.players[existingPlayerIndex].socketId = socket.id;
-            game.players[existingPlayerIndex].disconnected = false;
+          // Update database only if at least one player is not a guest
+          const hasRegisteredPlayer = game.players.some(p => !p.isGuest);
+          if (hasRegisteredPlayer) {
+            await Game.findOneAndUpdate(
+              { roomId },
+              {
+                players: game.players.map(p => ({
+                  userId: p.isGuest ? null : p.userId,
+                  username: p.username,
+                  symbol: p.symbol,
+                  isGuest: p.isGuest || false
+                })),
+                gameStatus: game.gameStatus,
+              }
+            );
+          }
 
-            socket.emit("room_joined", { game, roomId });
-            socket.to(roomId).emit("player_reconnected", {
-              username: socket.username,
-            });
+          socket.emit("room_joined", { game, roomId });
+
+          if (game.gameStatus === "playing") {
+            io.to(roomId).emit("game_started", { game });
           } else {
-            // Add new player
-            game.players.push({
-              userId: socket.userId,
+            socket.to(roomId).emit("player_joined", {
               username: socket.username,
-              symbol: "O",
-              socketId: socket.id,
+              playersCount: game.players.length,
             });
-
-            // Only start game if we have 2 players
-            if (game.players.length === 2) {
-              game.gameStatus = "playing";
-            }
-
-            // Update database only if not guest
-            if (!socket.isGuest) {
-              await Game.findOneAndUpdate(
-                { roomId },
-                {
-                  players: game.players,
-                  gameStatus: game.gameStatus,
-                }
-              );
-            }
-
-            socket.emit("room_joined", { game, roomId });
-
-            if (game.gameStatus === "playing") {
-              io.to(roomId).emit("game_started", { game });
-            } else {
-              socket.to(roomId).emit("player_joined", {
-                username: socket.username,
-                playersCount: game.players.length,
-              });
-            }
           }
         }
 
@@ -203,7 +203,8 @@ const gameSocket = (io) => {
           return socket.emit("error", { message: "Invalid game state" });
         }
 
-        const player = game.players.find((p) => p.socketId === socket.id);
+        // Find player by userId instead of socketId for better reliability
+        const player = game.players.find((p) => p.userId === socket.userId);
         if (!player || player.symbol !== game.currentPlayer) {
           return socket.emit("error", { message: "Not your turn" });
         }
@@ -245,9 +246,30 @@ const gameSocket = (io) => {
           game.currentPlayer = game.currentPlayer === "X" ? "O" : "X";
         }
 
-        // Update database only if not guest
-        if (!socket.isGuest) {
-          await Game.findOneAndUpdate({ roomId }, game);
+        // Update database only if at least one player is not a guest
+        const hasRegisteredPlayer = game.players.some(p => !p.isGuest);
+        if (hasRegisteredPlayer) {
+          // Create a proper game record with correct player data
+          const gameUpdate = {
+            board: game.board,
+            currentPlayer: game.currentPlayer,
+            gameStatus: game.gameStatus,
+            moves: game.moves,
+            players: game.players.map(p => ({
+              userId: p.isGuest ? null : p.userId,
+              username: p.username,
+              symbol: p.symbol,
+              isGuest: p.isGuest || false
+            }))
+          };
+          
+          if (game.gameStatus === "finished") {
+            gameUpdate.winner = game.winner;
+            gameUpdate.winningCombination = game.winningCombination;
+            gameUpdate.finishedAt = game.finishedAt;
+          }
+          
+          await Game.findOneAndUpdate({ roomId }, gameUpdate);
         }
 
         activeGames.set(roomId, game);
@@ -305,24 +327,34 @@ const gameSocket = (io) => {
                 username: opponent.username,
                 symbol: "X",
                 socketId: opponent.socketId,
+                isGuest: opponent.isGuest || false,
               },
               {
                 userId: socket.userId,
                 username: socket.username,
                 symbol: "O",
                 socketId: socket.id,
+                isGuest: socket.isGuest || false,
               },
             ],
             gameStatus: "playing",
             board: new Array(boardSize * boardSize).fill(""),
             currentPlayer: "X",
             moves: [],
-            spectators: [],
           };
 
-          // Save to database only if both players are not guests
-          if (!socket.isGuest && !opponent.isGuest) {
-            const game = new Game(gameData);
+          // Save to database only if at least one player is not a guest
+          const hasRegisteredPlayer = !socket.isGuest || !opponent.isGuest;
+          if (hasRegisteredPlayer) {
+            const game = new Game({
+              ...gameData,
+              players: gameData.players.map(p => ({
+                userId: p.isGuest ? null : p.userId,
+                username: p.username,
+                symbol: p.symbol,
+                isGuest: p.isGuest
+              }))
+            });
             game.initializeBoard();
             await game.save();
           }
@@ -349,7 +381,7 @@ const gameSocket = (io) => {
             userId: socket.userId,
             username: socket.username,
             boardSize,
-            isGuest: socket.isGuest,
+            isGuest: socket.isGuest || false,
           });
 
           socket.emit("queued", { position: matchmakingQueue.length });
@@ -393,8 +425,7 @@ const gameSocket = (io) => {
           }
           game = {
             ...dbGame.toObject(),
-            sockets: [],
-            spectators: dbGame.spectators || [],
+            sockets: []
           };
           activeGames.set(roomId, game);
         }
@@ -403,8 +434,6 @@ const gameSocket = (io) => {
         const playerIndex = game.players.findIndex(
           (p) => p.userId === socket.userId
         );
-        const spectatorIndex =
-          game.spectators?.findIndex((s) => s.userId === socket.userId) || -1;
 
         if (playerIndex !== -1) {
           // Update player socket ID
@@ -415,16 +444,6 @@ const gameSocket = (io) => {
 
           socket.emit("reconnected_to_game", { game });
           socket.to(roomId).emit("player_reconnected", {
-            username: socket.username,
-          });
-        } else if (spectatorIndex !== -1) {
-          // Update spectator socket ID
-          game.spectators[spectatorIndex].socketId = socket.id;
-          socket.join(roomId);
-          socket.roomId = roomId;
-
-          socket.emit("reconnected_as_spectator", { game });
-          socket.to(roomId).emit("spectator_reconnected", {
             username: socket.username,
           });
         } else {
@@ -472,19 +491,11 @@ const gameSocket = (io) => {
         const playerIndex = game.players.findIndex(
           (p) => p.socketId === socket.id
         );
-        const spectatorIndex =
-          game.spectators?.findIndex((s) => s.socketId === socket.id) || -1;
 
-        if (playerIndex !== -1 || spectatorIndex !== -1) {
+        if (playerIndex !== -1) {
           // Mark player as disconnected but don't remove from game
           // They might reconnect
-          if (playerIndex !== -1) {
-            game.players[playerIndex].disconnected = true;
-          }
-          if (spectatorIndex !== -1) {
-            game.spectators.splice(spectatorIndex, 1);
-          }
-
+          game.players[playerIndex].disconnected = true;
           activeGames.set(roomId, game);
           break;
         }
@@ -582,12 +593,20 @@ const gameSocket = (io) => {
             board: new Array(game.boardSize * game.boardSize).fill(""),
             currentPlayer: "X",
             moves: [],
-            spectators: game.spectators || [],
           };
 
-          // Save to database if not guest
-          if (!socket.isGuest) {
-            const newGame = new Game(newGameData);
+          // Save to database if at least one player is not a guest
+          const hasRegisteredPlayer = game.players.some(p => !p.isGuest);
+          if (hasRegisteredPlayer) {
+            const newGame = new Game({
+              ...newGameData,
+              players: newGameData.players.map(p => ({
+                userId: p.isGuest ? null : p.userId,
+                username: p.username,
+                symbol: p.symbol,
+                isGuest: p.isGuest || false
+              }))
+            });
             newGame.initializeBoard();
             await newGame.save();
           }
@@ -602,18 +621,6 @@ const gameSocket = (io) => {
               playerSocket.roomId = newRoomId;
             }
           });
-
-          // Move spectators to new room
-          if (game.spectators) {
-            game.spectators.forEach((s) => {
-              const spectatorSocket = io.sockets.sockets.get(s.socketId);
-              if (spectatorSocket) {
-                spectatorSocket.leave(oldRoomId);
-                spectatorSocket.join(newRoomId);
-                spectatorSocket.roomId = newRoomId;
-              }
-            });
-          }
 
           activeGames.set(newRoomId, newGameData);
           activeGames.delete(oldRoomId);
@@ -666,12 +673,20 @@ const gameSocket = (io) => {
           board: new Array(game.boardSize * game.boardSize).fill(""),
           currentPlayer: "X",
           moves: [],
-          spectators: game.spectators || [],
         };
 
-        // Save to database if not guest
-        if (!socket.isGuest) {
-          const newGame = new Game(newGameData);
+        // Save to database if at least one player is not a guest
+        const hasRegisteredPlayer = game.players.some(p => !p.isGuest);
+        if (hasRegisteredPlayer) {
+          const newGame = new Game({
+            ...newGameData,
+            players: newGameData.players.map(p => ({
+              userId: p.isGuest ? null : p.userId,
+              username: p.username,
+              symbol: p.symbol,
+              isGuest: p.isGuest || false
+            }))
+          });
           newGame.initializeBoard();
           newGame.save();
         }
@@ -686,18 +701,6 @@ const gameSocket = (io) => {
             playerSocket.roomId = newRoomId;
           }
         });
-
-        // Move spectators to new room
-        if (game.spectators) {
-          game.spectators.forEach((s) => {
-            const spectatorSocket = io.sockets.sockets.get(s.socketId);
-            if (spectatorSocket) {
-              spectatorSocket.leave(oldRoomId);
-              spectatorSocket.join(newRoomId);
-              spectatorSocket.roomId = newRoomId;
-            }
-          });
-        }
 
         activeGames.set(newRoomId, newGameData);
         activeGames.delete(oldRoomId);
@@ -736,6 +739,7 @@ const gameSocket = (io) => {
 // Helper function to update player statistics
 async function updatePlayerStats(players, winner, forfeitedBy = null) {
   for (const player of players) {
+    // Only update stats for registered users (not guests)
     if (player.userId && !player.isGuest) {
       try {
         const user = await User.findById(player.userId);
