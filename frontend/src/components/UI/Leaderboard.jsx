@@ -189,8 +189,8 @@ const Leaderboard = () => {
 
           {/* Current User Rank */}
           {user && currentUserRank > 0 && (
-            <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-              <div className="flex items-center justify-between">
+            <div className="p-4 sm:p-6 flex flex-col md:flex-row bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+              <div className="flex flex-col md:flex-row w-full md:w-1/2 items-center justify-center">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white font-semibold text-sm sm:text-base">
@@ -211,126 +211,127 @@ const Leaderboard = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Leaderboard List */}
+              <div className="p-4 sm:p-6 w-full md:w-1/2">
+                {leaderboardData.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="flex justify-center mb-4">
+                      <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div className="text-gray-500 text-lg mb-2">No players found</div>
+                    <p className="text-gray-400">Be the first to play and appear on the leaderboard!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 sm:space-y-4">
+                    {leaderboardData.map((player, index) => {
+                      const rank = index + 1;
+                      const isCurrentUser = player._id === user?.id;
+                      const isTopThree = rank <= 3;
+
+                      return (
+                        <div
+                          key={player._id}
+                          className={`flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl border-2 transition-all ${isCurrentUser
+                            ? 'border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50'
+                            : isTopThree
+                              ? 'border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                          {/* Rank */}
+                          <div className="flex-shrink-0 w-12 sm:w-16 flex justify-center">
+                            {getRankIcon(rank)}
+                          </div>
+
+                          {/* Player Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-1">
+                              <h3 className="text-gray-900 truncate text-sm sm:text-base font-bold">
+                                {player.username}
+                              </h3>
+                              <div className="flex items-center space-x-2 mt-1 sm:mt-0">
+                                {isCurrentUser && (
+                                  <span className="bg-blue-100  text-blue-800 text-xs px-2 py-1 rounded-full font-medium">
+                                    You
+                                  </span>
+                                )}
+                                {isTopThree && !isCurrentUser && (
+                                  <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-sm border-2 font-medium">
+                                    Top {rank}
+                                  </span>
+                                )}
+                                {player.isOnline && (
+                                  <div className="flex items-center space-x-1">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    <span className="text-xs text-green-600 font-medium">Online</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                              <span className="flex items-center space-x-1">
+                                <span className="font-medium">W:</span>
+                                <span>{player.stats.wins}</span>
+                              </span>
+                              <span className="flex items-center space-x-1">
+                                <span className="font-medium">L:</span>
+                                <span>{player.stats.losses}</span>
+                              </span>
+                              <span className="flex items-center space-x-1">
+                                <span className="font-medium">D:</span>
+                                <span>{player.stats.draws}</span>
+                              </span>
+                              <span className="flex items-center space-x-1">
+                                <span className="font-medium">Rate:</span>
+                                <span>{player.stats.winRate}%</span>
+                              </span>
+                              {player.stats.currentStreak > 0 && (
+                                <span className="flex items-center space-x-1 text-green-600 font-medium">
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
+                                  </svg>
+                                  <span>{player.stats.currentStreak}</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Main Stat */}
+                          <div className="flex-shrink-0 text-right">
+                            <div className={`text-lg sm:text-2xl font-bold ${isTopThree ? 'text-yellow-600' : 'text-gray-900'}`}>
+                              {getStatValue(player, filter)}
+                            </div>
+                            <div className="text-xs text-gray-500 hidden sm:block">
+                              {getFilterLabel(filter)}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Win Rate Note */}
+                {filter === 'winRate' && (
+                  <div className="mt-6 p-3 sm:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-sm text-yellow-800">
+                        <span className="font-medium">Note:</span> Win rates marked with * indicate players with fewer than 5 games played.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Leaderboard List */}
-          <div className="p-4 sm:p-6">
-            {leaderboardData.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="flex justify-center mb-4">
-                  <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <div className="text-gray-500 text-lg mb-2">No players found</div>
-                <p className="text-gray-400">Be the first to play and appear on the leaderboard!</p>
-              </div>
-            ) : (
-              <div className="space-y-3 sm:space-y-4">
-                {leaderboardData.map((player, index) => {
-                  const rank = index + 1;
-                  const isCurrentUser = player._id === user?.id;
-                  const isTopThree = rank <= 3;
-
-                  return (
-                    <div
-                      key={player._id}
-                      className={`flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl border-2 transition-all ${isCurrentUser
-                        ? 'border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50'
-                        : isTopThree
-                          ? 'border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                    >
-                      {/* Rank */}
-                      <div className="flex-shrink-0 w-12 sm:w-16 flex justify-center">
-                        {getRankIcon(rank)}
-                      </div>
-
-                      {/* Player Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mb-1">
-                          <h3 className="text-gray-900 truncate text-sm sm:text-base font-bold">
-                            {player.username}
-                          </h3>
-                          <div className="flex items-center space-x-2 mt-1 sm:mt-0">
-                            {isCurrentUser && (
-                              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">
-                                You
-                              </span>
-                            )}
-                            {isTopThree && !isCurrentUser && (
-                              <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-sm border-2 font-medium">
-                                Top {rank}
-                              </span>
-                            )}
-                            {player.isOnline && (
-                              <div className="flex items-center space-x-1">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-xs text-green-600 font-medium">Online</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                          <span className="flex items-center space-x-1">
-                            <span className="font-medium">W:</span>
-                            <span>{player.stats.wins}</span>
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <span className="font-medium">L:</span>
-                            <span>{player.stats.losses}</span>
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <span className="font-medium">D:</span>
-                            <span>{player.stats.draws}</span>
-                          </span>
-                          <span className="flex items-center space-x-1">
-                            <span className="font-medium">Rate:</span>
-                            <span>{player.stats.winRate}%</span>
-                          </span>
-                          {player.stats.currentStreak > 0 && (
-                            <span className="flex items-center space-x-1 text-green-600 font-medium">
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
-                              </svg>
-                              <span>{player.stats.currentStreak}</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Main Stat */}
-                      <div className="flex-shrink-0 text-right">
-                        <div className={`text-lg sm:text-2xl font-bold ${isTopThree ? 'text-yellow-600' : 'text-gray-900'}`}>
-                          {getStatValue(player, filter)}
-                        </div>
-                        <div className="text-xs text-gray-500 hidden sm:block">
-                          {getFilterLabel(filter)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Win Rate Note */}
-            {filter === 'winRate' && (
-              <div className="mt-6 p-3 sm:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-start space-x-2">
-                  <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-sm text-yellow-800">
-                    <span className="font-medium">Note:</span> Win rates marked with * indicate players with fewer than 5 games played.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

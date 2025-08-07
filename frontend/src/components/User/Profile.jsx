@@ -20,7 +20,7 @@ const Profile = () => {
     confirmPassword: ''
   });
 
-  // Fixed API calls
+  // Fixed API calls with better error handling
   const fetchUserData = async () => {
     try {
       const response = await api.get('/auth/profile');
@@ -32,8 +32,19 @@ const Profile = () => {
         newPassword: '',
         confirmPassword: ''
       });
-    } catch {
-      setErrors({ general: 'Failed to load user data' });
+      return true;
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+      
+      // Handle different types of errors
+      if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNABORTED') {
+        setErrors({ general: 'Unable to connect to server. Please check your internet connection.' });
+      } else if (error.response?.status === 401) {
+        setErrors({ general: 'Session expired. Please login again.' });
+      } else {
+        setErrors({ general: error.response?.data?.error || 'Failed to load user data' });
+      }
+      return false;
     }
   };
 
@@ -42,8 +53,11 @@ const Profile = () => {
       const response = await api.get('/game/stats/overview');
       console.log('Full game stats response:', response.data); // Keep this temporarily for debugging
       setGameStats(response.data);
+      return true;
     } catch (error) {
-      console.error('Failed to fetch game stats:', error.response?.data || error.message);
+      console.error('Failed to fetch game stats:', error);
+      
+      // Set default stats and don't treat this as a critical error
       setGameStats({
         totalGames: 0,
         wins: 0,
@@ -55,13 +69,27 @@ const Profile = () => {
         shortestGame: 0,
         recentGames: []
       });
+      
+      // Only show error if it's not a network issue
+      if (error.code !== 'NETWORK_ERROR' && error.code !== 'ECONNABORTED') {
+        console.warn('Game stats could not be loaded, using defaults');
+      }
+      return false;
     }
   };
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchUserData(), fetchGameStats()]);
+      
+      // Try to fetch user data first - this is critical
+      const userSuccess = await fetchUserData();
+      
+      if (userSuccess) {
+        // Only fetch game stats if user data was successful
+        await fetchGameStats();
+      }
+      
       setLoading(false);
     };
     loadData();
