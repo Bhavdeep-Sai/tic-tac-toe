@@ -17,6 +17,34 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
 
+  const fetchProfile = async () => {
+    try {
+      const response = await api.get('/auth/profile');
+      
+      // Transform the user object to ensure it has the id field
+      const transformedUser = {
+        ...response.data,
+        id: response.data._id || response.data.id
+      };
+      
+      setUser(transformedUser);
+      setIsGuest(false);
+      return { success: true, user: transformedUser };
+    } catch (error) {
+      if (typeof window !== 'undefined') {
+        window.localStorage?.removeItem('token');
+      }
+      delete api.defaults.headers.common['Authorization'];
+      // Don't show toast on initial load if token is invalid
+      if (user) {
+        toast.error('Session expired. Please login again.');
+      }
+      return { success: false, error: error.response?.data?.error || 'Authentication failed' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Check if we're in a browser environment
     if (typeof window !== 'undefined') {
@@ -49,24 +77,35 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchProfile = async () => {
+  const validateToken = async () => {
     try {
+      const token = window.localStorage?.getItem('token');
+      if (!token) {
+        return { success: false, error: 'No token found' };
+      }
+
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       const response = await api.get('/auth/profile');
-      setUser(response.data);
+      
+      // Transform the user object to ensure it has the id field
+      const transformedUser = {
+        ...response.data,
+        id: response.data._id || response.data.id
+      };
+      
+      setUser(transformedUser);
       setIsGuest(false);
+      return { success: true, user: transformedUser };
     } catch (error) {
       if (typeof window !== 'undefined') {
         window.localStorage?.removeItem('token');
       }
       delete api.defaults.headers.common['Authorization'];
-      // Don't show toast on initial load if token is invalid
-      if (user) {
-        toast.error('Session expired. Please login again.');
-      }
-    } finally {
-      setLoading(false);
+      setUser(null);
+      setIsGuest(false);
+      return { success: false, error: error.response?.data?.error || 'Token validation failed' };
     }
   };
 
@@ -75,14 +114,20 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/login', { email, password });
       const { token, user } = response.data;
       
+      // Transform the user object to ensure it has the id field
+      const transformedUser = {
+        ...user,
+        id: user._id || user.id
+      };
+      
       if (typeof window !== 'undefined') {
         window.localStorage?.setItem('token', token);
         window.localStorage?.removeItem('guestMode');
       }
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
+      setUser(transformedUser);
       setIsGuest(false);
-      toast.success(`Welcome back, ${user.username}!`);
+      toast.success(`Welcome back, ${transformedUser.username}!`);
       return true;
     } catch (error) {
       toast.error(error.response?.data?.error || 'Login failed');
@@ -95,14 +140,20 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/register', { username, email, password });
       const { token, user } = response.data;
       
+      // Transform the user object to ensure it has the id field
+      const transformedUser = {
+        ...user,
+        id: user._id || user.id
+      };
+      
       if (typeof window !== 'undefined') {
         window.localStorage?.setItem('token', token);
         window.localStorage?.removeItem('guestMode');
       }
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
+      setUser(transformedUser);
       setIsGuest(false);
-      toast.success(`Welcome, ${user.username}!`);
+      toast.success(`Welcome, ${transformedUser.username}!`);
       return true;
     } catch (error) {
       toast.error(error.response?.data?.error || 'Registration failed');
@@ -181,7 +232,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     playAsGuest,
     loginAsGuest,
-    updateUserStats
+    updateUserStats,
+    validateToken
   };
 
   return (

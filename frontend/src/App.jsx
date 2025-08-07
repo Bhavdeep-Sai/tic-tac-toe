@@ -13,13 +13,13 @@ import Leaderboard from './components/UI/Leaderboard';
 import Profile from './components/User/Profile';
 
 function AppContent() {
-  const { user, isGuest } = useAuth();
+  const { user } = useAuth();
 
 
   const isAuthenticated = user !== null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-pink-900">
       {isAuthenticated && <Header />}
       <main className="container mx-auto px-4 py-8">
         <Routes>
@@ -67,11 +67,11 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <GameProvider>
-        <Router>
+      <Router>
+        <GameProvider>
           <AppContent />
-        </Router>
-      </GameProvider>
+        </GameProvider>
+      </Router>
     </AuthProvider>
   );
 }

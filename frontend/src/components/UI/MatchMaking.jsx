@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 
 const Matchmaking = () => {
-  const { user } = useAuth();
+  const { user, validateToken, logout } = useAuth();
   const navigate = useNavigate();
   const {
     findMatch,
@@ -17,7 +17,8 @@ const Matchmaking = () => {
     queuePosition,
     game,
     inviteCode,
-    isConnected
+    isConnected,
+    authError
   } = useGame();
 
   const [selectedBoardSize, setSelectedBoardSize] = useState(3);
@@ -26,6 +27,58 @@ const Matchmaking = () => {
   const [notification, setNotification] = useState(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [autoConnectAttempted, setAutoConnectAttempted] = useState(false);
+
+  // Auto-connect logic when component mounts
+  useEffect(() => {
+    const attemptAutoConnect = async () => {
+      if (autoConnectAttempted) return;
+      
+      setAutoConnectAttempted(true);
+      
+      // Check if user data is stored in localStorage
+      const token = localStorage.getItem('token');
+      if (token && !user) {
+        showNotification('Auto-connecting to server...', 'info');
+        
+        try {
+          const result = await validateToken();
+          if (!result.success) {
+            console.log('Token validation failed:', result.error);
+            showNotification('Session expired. Please login again.', 'error');
+            setTimeout(() => {
+              logout();
+              navigate('/login');
+            }, 2000);
+            return;
+          }
+          console.log('Auto-connect successful! User:', result.user);
+          showNotification('Successfully connected!', 'success');
+        } catch (error) {
+          console.error('Auto-connect failed:', error);
+          showNotification('Connection failed. Please login again.', 'error');
+          setTimeout(() => {
+            logout();
+            navigate('/login');
+          }, 2000);
+        }
+      } else if (!token && !user) {
+        console.log('No token found, redirecting to login...');
+        navigate('/login');
+      }
+    };
+
+    attemptAutoConnect();
+  }, [user, validateToken, logout, navigate, autoConnectAttempted]);
+
+  // Handle authentication errors from socket
+  useEffect(() => {
+    if (authError) {
+      showNotification('Authentication failed. Please login again.', 'error');
+      logout();
+      navigate('/login');
+    }
+  }, [authError, logout, navigate]);
 
   // Auto-redirect to game when ready
   useEffect(() => {
@@ -36,7 +89,7 @@ const Matchmaking = () => {
 
   const showNotification = (message, type = 'info') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 5000);
   };
 
   const handleFindMatch = () => {
@@ -92,8 +145,8 @@ const Matchmaking = () => {
       } else {
         showNotification('Room not found', 'error');
       }
-    } catch (error) {
-      showNotification(error.response?.data?.error || 'Failed to join private room', 'error');
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Failed to join private room', 'error');
     } finally {
       setIsJoiningRoom(false);
     }
@@ -103,7 +156,7 @@ const Matchmaking = () => {
     try {
       await navigator.clipboard.writeText(inviteCode);
       showNotification('Invite code copied to clipboard!', 'success');
-    } catch (error) {
+    } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = inviteCode;
@@ -113,6 +166,10 @@ const Matchmaking = () => {
       document.body.removeChild(textArea);
       showNotification('Invite code copied to clipboard!', 'success');
     }
+  };
+
+  const handleManualReconnect = () => {
+    window.location.reload();
   };
 
   const getBoardSizeLabel = (size) => {
@@ -179,7 +236,7 @@ const Matchmaking = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-0">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">Find a Game</h1>
         <p className="text-gray-300">Choose your preferred way to play</p>
@@ -204,7 +261,7 @@ const Matchmaking = () => {
       )}
 
       {/* Connection Status */}
-      {!isConnected && (
+      {!isConnected && user && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <div className="flex items-center space-x-2 text-red-600">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,7 +269,30 @@ const Matchmaking = () => {
             </svg>
             <span className="font-medium">Connection Lost</span>
           </div>
-          <p className="text-red-600 mt-1">Reconnecting to server...</p>
+          <p className="text-red-600 mt-1">
+            Unable to connect to server 
+          </p>
+          <p className="text-red-500 text-sm">
+            User: {user.username} (ID: {user.id || 'undefined'})
+          </p>
+          <button
+            onClick={handleManualReconnect}
+            className="mt-3 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Reload Page
+          </button>
+        </div>
+      )}
+
+      {/* Connected Status */}
+      {isConnected && user && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center space-x-2 text-green-600">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="font-medium">Connected to Server</span>
+          </div>
         </div>
       )}
 

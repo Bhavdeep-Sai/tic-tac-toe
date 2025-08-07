@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import useSocket from '../hooks/useSocket';
 import { useAuth } from './AuthContext';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 const GameContext = createContext();
@@ -14,8 +15,17 @@ export const useGame = () => {
 };
 
 export const GameProvider = ({ children }) => {
-  const { user } = useAuth();
-  const { socket, isConnected } = useSocket(user?.id);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleAuthError = useCallback((error) => {
+    console.error('Socket authentication failed:', error);
+    toast.error('Authentication failed. Please login again.');
+    logout();
+    navigate('/login');
+  }, [logout, navigate]);
+
+  const { socket, isConnected, authError } = useSocket(user?.id, handleAuthError);
 
   const [game, setGame] = useState(null);
   const [isInQueue, setIsInQueue] = useState(false);
@@ -306,6 +316,7 @@ export const GameProvider = ({ children }) => {
     roomId,
     inviteCode,
     isConnected,
+    authError,
     rematchRequest,
     createRoom,
     joinRoom,
