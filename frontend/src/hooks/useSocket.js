@@ -31,6 +31,8 @@ const useSocket = (userId, onAuthError) => {
       const isGuestUser = userId.startsWith('guest_');
       const authToken = localStorage.getItem('token');
       
+      console.log('Socket connecting for user:', { userId, isGuestUser, hasToken: !!authToken });
+      
       if (authToken && !isGuestUser) {
         newSocket.emit('authenticate', authToken);
       } else if (isGuestUser) {
@@ -41,7 +43,7 @@ const useSocket = (userId, onAuthError) => {
       }
     });
 
-    newSocket.on('disconnect', (reason) => {
+    newSocket.on('disconnect', () => {
       setIsConnected(false);
     });
 

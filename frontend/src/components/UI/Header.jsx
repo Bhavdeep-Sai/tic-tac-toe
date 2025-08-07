@@ -68,7 +68,7 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white sticky top-0 shadow-lg border-b">
+    <header className="bg-white z-[1000] sticky top-0 shadow-lg border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo and Navigation */}

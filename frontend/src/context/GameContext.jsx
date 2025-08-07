@@ -74,8 +74,13 @@ export const GameProvider = ({ children }) => {
 
       if (!user) return;
 
+      // Better user ID matching for both regular and guest users
       const isWinner = data.winner !== 'draw' &&
-        game?.players?.find(p => p.userId === user.id)?.symbol === data.winner;
+        game?.players?.find(p => {
+          const playerUserId = p.userId?.toString ? p.userId.toString() : p.userId;
+          const currentUserId = user.id?.toString ? user.id.toString() : user.id;
+          return playerUserId === currentUserId;
+        })?.symbol === data.winner;
 
       if (data.winner === 'draw') {
         toast('Game ended in a draw!', { icon: '🤝' });
@@ -260,6 +265,18 @@ export const GameProvider = ({ children }) => {
   };
 
   const makeMove = (position) => {
+    console.log('GameContext makeMove called:', {
+      position,
+      isConnected,
+      roomId,
+      userId: user?.id,
+      game: game ? {
+        currentPlayer: game.currentPlayer,
+        gameStatus: game.gameStatus,
+        players: game.players?.map(p => ({ userId: p.userId, symbol: p.symbol }))
+      } : null
+    });
+    
     if (socket && isConnected && roomId) {
       socket.emit('make_move', { roomId, position });
     } else {

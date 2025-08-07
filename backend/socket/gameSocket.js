@@ -8,8 +8,107 @@ const { v4: uuidv4 } = require("uuid");
 const activeGames = new Map();
 const matchmakingQueue = [];
 
+// Helper function to sync all players' socket information in a game
+function syncAllPlayersInGame(io, game, roomId) {
+  console.log('Syncing all players in game:', roomId);
+  
+  game.players.forEach((player, index) => {
+    // Find the socket for this player by their current socket ID first
+    let playerSocket = io.sockets.sockets.get(player.socketId);
+    
+    // If not found by socket ID, try to find by user ID
+    if (!playerSocket && player.userId) {
+      for (const [socketId, socket] of io.sockets.sockets) {
+        if (socket.userId && socket.userId.toString() === player.userId.toString()) {
+          playerSocket = socket;
+          break;
+        }
+      }
+    }
+    
+    if (playerSocket) {
+      // Update the player's socket information
+      player.socketId = playerSocket.id;
+      player.disconnected = false;
+      
+      // Make sure the socket is in the room
+      if (playerSocket.roomId !== roomId) {
+        console.log(`Syncing player ${player.username} to room ${roomId}`);
+        playerSocket.join(roomId);
+        playerSocket.roomId = roomId;
+      }
+      
+      console.log(`Player ${index} (${player.username}) synced:`, {
+        userId: player.userId,
+        socketId: player.socketId,
+        symbol: player.symbol
+      });
+    } else {
+      console.log(`Player ${index} (${player.username}) socket not found`);
+      player.disconnected = true;
+    }
+  });
+}
+
+// Helper function to find a player in a game
+function findPlayerInGame(game, socket) {
+  return game.players.find((p) => {
+    // First try socket ID match (most reliable for current session)
+    if (p.socketId === socket.id) {
+      return true;
+    }
+    
+    // Then try userId match for both guest and registered users
+    if (socket.userId && p.userId) {
+      const playerUserId = p.userId?.toString ? p.userId.toString() : String(p.userId);
+      const socketUserId = socket.userId?.toString ? socket.userId.toString() : String(socket.userId);
+      if (playerUserId === socketUserId) {
+        return true;
+      }
+    }
+    
+    // For guest users, also try matching by username as fallback
+    if (socket.isGuest && p.isGuest && socket.username === p.username) {
+      return true;
+    }
+    
+    return false;
+  });
+}
+
+// Helper function to find player index in a game
+function findPlayerIndexInGame(game, socket) {
+  return game.players.findIndex((p) => {
+    // First try socket ID match
+    if (p.socketId === socket.id) {
+      return true;
+    }
+    
+    // Then try userId match
+    if (socket.userId && p.userId) {
+      const playerUserId = p.userId?.toString ? p.userId.toString() : String(p.userId);
+      const socketUserId = socket.userId?.toString ? socket.userId.toString() : String(socket.userId);
+      if (playerUserId === socketUserId) {
+        return true;
+      }
+    }
+    
+    // For guest users, match by username
+    if (socket.isGuest && p.isGuest && socket.username === p.username) {
+      return true;
+    }
+    
+    return false;
+  });
+}
+
 const gameSocket = (io) => {
   io.on("connection", (socket) => {
+    console.log('New socket connection:', {
+      socketId: socket.id,
+      timestamp: new Date().toISOString()
+    });
+    
     // Authenticate socket connection for regular users
     socket.on("authenticate", async (token) => {
       try {
@@ -25,11 +124,28 @@ const gameSocket = (io) => {
           socket.isGuest = false;
           user.isOnline = true;
           await user.save();
+          
+          console.log('User authenticated:', {
+            userId: socket.userId,
+            username: socket.username
+          });
+          
           socket.emit("authenticated", {
             user: { id: user._id, username: user.username },
           });
+          
+          console.log('Authentication completed for user:', {
+            userId: socket.userId,
+            username: socket.username,
+            socketId: socket.id,
+            roomId: socket.roomId
+          });
+        } else {
+          console.log('User not found for token');
+          socket.emit("auth_error", { error: "User not found" });
         }
       } catch (error) {
+        console.log('Authentication error:', error.message);
         socket.emit("auth_error", { error: "Invalid token" });
       }
     });
@@ -39,8 +155,46 @@ const gameSocket = (io) => {
       socket.userId = data.userId;
       socket.username = data.username;
       socket.isGuest = true;
+      
+      console.log('Guest authenticated:', {
+        socketId: socket.id,
+        userId: socket.userId,
+        username: socket.username,
+        isGuest: socket.isGuest
+      });
+      
       socket.emit("guest_authenticated", {
         user: { id: data.userId, username: data.username },
+      });
+      
+      console.log('Guest authentication completed:', {
+        userId: socket.userId,
+        username: socket.username,
+        socketId: socket.id,
+        roomId: socket.roomId
+      });
+    });
+
+    // Debug handler to check socket state
+    socket.on("debug_socket_state", () => {
+      console.log('Debug socket state requested:', {
+        socketId: socket.id,
+        userId: socket.userId,
+        username: socket.username,
+        isGuest: socket.isGuest,
+        roomId: socket.roomId,
+        rooms: Array.from(socket.rooms),
+        activeGamesCount: activeGames.size,
+        activeGameRoomIds: Array.from(activeGames.keys())
+      });
+      
+      socket.emit("debug_socket_state_response", {
+        socketId: socket.id,
+        userId: socket.userId,
+        username: socket.username,
+        isGuest: socket.isGuest,
+        roomId: socket.roomId,
+        rooms: Array.from(socket.rooms)
       });
     });
 
@@ -106,6 +260,15 @@ const gameSocket = (io) => {
     socket.on("join_room", async (data) => {
       try {
         const { roomId } = data;
+        
+        console.log('Join room request:', {
+          roomId,
+          socketId: socket.id,
+          userId: socket.userId,
+          username: socket.username,
+          isGuest: socket.isGuest,
+          currentRoomId: socket.roomId
+        });
 
         let game = activeGames.get(roomId);
         if (!game) {
@@ -122,23 +285,56 @@ const gameSocket = (io) => {
 
         socket.join(roomId);
         socket.roomId = roomId;
+        
+        console.log('Socket joined room:', {
+          roomId,
+          socketId: socket.id,
+          newRoomId: socket.roomId,
+          gamePlayersCount: game.players.length
+        });
 
         if (game.players.length >= 2) {
           return socket.emit("error", { message: "Room is full" });
         }
 
         // Check if user is already in the game (reconnection case)
-        const existingPlayerIndex = game.players.findIndex(
-          (p) => p.userId === socket.userId
-        );
+        let existingPlayerIndex = findPlayerIndexInGame(game, socket);
+        
+        // If not found but room isn't full, check if there's a disconnected player with same username
+        if (existingPlayerIndex === -1 && socket.isGuest && game.players.length < 2) {
+          existingPlayerIndex = game.players.findIndex(p => 
+            p.username === socket.username && (p.disconnected || !p.socketId)
+          );
+        }
+        
+        console.log('Join room attempt:', {
+          roomId,
+          socketUserId: socket.userId,
+          existingPlayerIndex,
+          playersCount: game.players.length,
+          players: game.players.map(p => ({ userId: p.userId, symbol: p.symbol }))
+        });
+        
         if (existingPlayerIndex !== -1) {
-          // Update existing player's socket ID
+          // Update existing player's socket ID and other properties
           game.players[existingPlayerIndex].socketId = socket.id;
           game.players[existingPlayerIndex].disconnected = false;
+          game.players[existingPlayerIndex].userId = socket.userId; // Update userId for guests
+          game.players[existingPlayerIndex].isGuest = socket.isGuest || false;
+
+          // Sync all players to ensure everyone is properly connected
+          syncAllPlayersInGame(io, game, roomId);
 
           socket.emit("room_joined", { game, roomId });
           socket.to(roomId).emit("player_reconnected", {
             username: socket.username,
+          });
+          
+          console.log('Player reconnected:', {
+            username: socket.username,
+            userId: socket.userId,
+            isGuest: socket.isGuest,
+            symbol: game.players[existingPlayerIndex].symbol
           });
         } else {
           // Add new player
@@ -153,6 +349,8 @@ const gameSocket = (io) => {
           // Only start game if we have 2 players
           if (game.players.length === 2) {
             game.gameStatus = "playing";
+            // Sync all players when game starts
+            syncAllPlayersInGame(io, game, roomId);
           }
 
           // Update database only if at least one player is not a guest
@@ -194,15 +392,149 @@ const gameSocket = (io) => {
     socket.on("make_move", async (data) => {
       try {
         const { roomId, position } = data;
+        
         const game = activeGames.get(roomId);
 
         if (!game || game.gameStatus !== "playing") {
           return socket.emit("error", { message: "Invalid game state" });
         }
 
-        // Find player by userId instead of socketId for better reliability
-        const player = game.players.find((p) => p.userId === socket.userId);
-        if (!player || player.symbol !== game.currentPlayer) {
+        // Always sync all players before processing moves to ensure everyone is properly connected
+        syncAllPlayersInGame(io, game, roomId);
+
+        // Check if socket is in the room, if not but they should be, add them
+        if (socket.roomId !== roomId) {
+          console.log('Socket room mismatch, checking if player belongs to game:', {
+            socketRoomId: socket.roomId,
+            requestedRoomId: roomId,
+            socketId: socket.id,
+            socketUserId: socket.userId,
+            socketUsername: socket.username,
+            socketIsGuest: socket.isGuest
+          });
+          
+          // Check if this socket should be in this room (they're a player in the game)
+          const playerIndex = findPlayerIndexInGame(game, socket);
+          console.log('Player index check result:', {
+            playerIndex,
+            gamePlayersCount: game.players.length,
+            gamePlayers: game.players.map(p => ({
+              userId: p.userId,
+              username: p.username,
+              symbol: p.symbol,
+              socketId: p.socketId,
+              isGuest: p.isGuest
+            }))
+          });
+          
+          if (playerIndex !== -1) {
+            console.log('Player found in game but not in room, adding to room');
+            socket.join(roomId);
+            socket.roomId = roomId;
+            // Update their socket ID in the game
+            game.players[playerIndex].socketId = socket.id;
+            game.players[playerIndex].disconnected = false;
+            
+            // Sync all players to ensure everyone is properly connected
+            syncAllPlayersInGame(io, game, roomId);
+            
+            activeGames.set(roomId, game);
+            console.log('Socket successfully re-added to room:', {
+              roomId,
+              socketId: socket.id,
+              newSocketRoomId: socket.roomId
+            });
+          } else {
+            console.log('Player not found in game, rejecting move');
+            return socket.emit("error", { message: "You are not in this room" });
+          }
+        }
+
+        // Find player using helper function
+        let player = findPlayerInGame(game, socket);
+        
+        console.log('Move attempt debug:', {
+          socketId: socket.id,
+          socketUserId: socket.userId,
+          socketUsername: socket.username,
+          socketIsGuest: socket.isGuest,
+          currentPlayer: game.currentPlayer,
+          gameStatus: game.gameStatus,
+          position,
+          players: game.players.map(p => ({
+            userId: p.userId,
+            username: p.username,
+            symbol: p.symbol,
+            isGuest: p.isGuest,
+            socketId: p.socketId
+          })),
+          playerFound: !!player,
+          playerSymbol: player ? player.symbol : 'N/A'
+        });
+        
+        if (!player) {
+          console.log('Player not found in game. Detailed comparison:');
+          console.log('Socket info:', {
+            socketId: socket.id,
+            userId: socket.userId,
+            username: socket.username,
+            isGuest: socket.isGuest
+          });
+          game.players.forEach((p, index) => {
+            const playerUserId = p.userId?.toString ? p.userId.toString() : String(p.userId);
+            const socketUserId = socket.userId?.toString ? socket.userId.toString() : String(socket.userId);
+            console.log(`Player ${index}:`, {
+              socketId: p.socketId,
+              playerUserId,
+              socketUserId,
+              username: p.username,
+              isGuest: p.isGuest,
+              userIdMatch: playerUserId === socketUserId,
+              socketIdMatch: p.socketId === socket.id,
+              usernameMatch: p.username === socket.username,
+              playerSymbol: p.symbol
+            });
+          });
+          
+          // Try to find player by userId (registered users) or username (guests) and update their socket
+          let foundPlayerIndex = -1;
+          
+          if (!socket.isGuest && socket.userId) {
+            // For registered users, match by userId
+            foundPlayerIndex = game.players.findIndex(p => {
+              const playerUserId = p.userId?.toString ? p.userId.toString() : String(p.userId);
+              const socketUserId = socket.userId?.toString ? socket.userId.toString() : String(socket.userId);
+              return playerUserId === socketUserId;
+            });
+          } else if (socket.isGuest && socket.username) {
+            // For guest users, match by username
+            foundPlayerIndex = game.players.findIndex(p => 
+              p.username === socket.username && p.isGuest
+            );
+          }
+          
+          if (foundPlayerIndex !== -1) {
+            console.log('Found player by ID/username, updating socket info');
+            game.players[foundPlayerIndex].socketId = socket.id;
+            game.players[foundPlayerIndex].disconnected = false;
+            
+            // Use the updated player
+            player = game.players[foundPlayerIndex];
+            activeGames.set(roomId, game);
+          } else {
+            return socket.emit("error", { message: "Player not found in this game" });
+          }
+        }
+        
+        if (player.symbol !== game.currentPlayer) {
+          console.log('Turn validation failed:', {
+            playerSymbol: player.symbol,
+            currentPlayer: game.currentPlayer,
+            playerUserId: player.userId,
+            socketUserId: socket.userId,
+            playerUsername: player.username,
+            socketUsername: socket.username
+          });
           return socket.emit("error", { message: "Not your turn" });
         }
 
@@ -379,9 +711,12 @@ const gameSocket = (io) => {
 
           activeGames.set(roomId, gameData);
 
+          // Sync all players to ensure both are properly connected
+          syncAllPlayersInGame(io, activeGames.get(roomId), roomId);
+
           io.to(roomId).emit("match_found", {
             roomId,
-            game: gameData,
+            game: activeGames.get(roomId),
           });
         } else {
           // Add to queue
@@ -439,17 +774,20 @@ const gameSocket = (io) => {
           activeGames.set(roomId, game);
         }
 
-        // Find player in game
-        const playerIndex = game.players.findIndex(
-          (p) => p.userId === socket.userId
-        );
+        // Find player in game with improved matching
+        let playerIndex = findPlayerIndexInGame(game, socket);
 
         if (playerIndex !== -1) {
-          // Update player socket ID
+          // Update player socket ID and other properties
           game.players[playerIndex].socketId = socket.id;
           game.players[playerIndex].disconnected = false;
+          game.players[playerIndex].userId = socket.userId; // Update for guests
+          game.players[playerIndex].isGuest = socket.isGuest || false;
           socket.join(roomId);
           socket.roomId = roomId;
+
+          // Sync all players to ensure everyone is properly connected
+          syncAllPlayersInGame(io, game, roomId);
 
           socket.emit("reconnected_to_game", { game });
           socket.to(roomId).emit("player_reconnected", {
@@ -495,9 +833,7 @@ const gameSocket = (io) => {
 
       // Clean up active games if needed
       for (const [roomId, game] of activeGames.entries()) {
-        const playerIndex = game.players.findIndex(
-          (p) => p.socketId === socket.id
-        );
+        const playerIndex = findPlayerIndexInGame(game, socket);
 
         if (playerIndex !== -1) {
           // Mark player as disconnected but don't remove from game
@@ -519,7 +855,9 @@ const gameSocket = (io) => {
           return socket.emit("error", { message: "Cannot forfeit this game" });
         }
 
-        const player = game.players.find((p) => p.socketId === socket.id);
+        // Find the player using helper function
+        const player = findPlayerInGame(game, socket);
+        
         if (!player) {
           return socket.emit("error", {
             message: "You are not a player in this game",
@@ -580,7 +918,7 @@ const gameSocket = (io) => {
           return socket.emit("error", { message: "Cannot request rematch" });
         }
 
-        const player = game.players.find((p) => p.socketId === socket.id);
+        const player = findPlayerInGame(game, socket);
         if (!player) {
           return socket.emit("error", {
             message: "You are not a player in this game",

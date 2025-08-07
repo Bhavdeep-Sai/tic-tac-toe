@@ -21,9 +21,18 @@ const GameBoard = () => {
 
   const [notification, setNotification] = useState(null);
 
-  // Get current player info
-  const currentUserPlayer = game?.players?.find(p => p.userId === user?.id);
-  const opponent = game?.players?.find(p => p.userId !== user?.id);
+  // Get current player info with better matching logic
+  const currentUserPlayer = game?.players?.find(p => {
+    // Handle both string and ObjectId comparisons
+    const playerUserId = p.userId?.toString ? p.userId.toString() : p.userId;
+    const currentUserId = user?.id?.toString ? user?.id.toString() : user?.id;
+    return playerUserId === currentUserId;
+  });
+  const opponent = game?.players?.find(p => {
+    const playerUserId = p.userId?.toString ? p.userId.toString() : p.userId;
+    const currentUserId = user?.id?.toString ? user?.id.toString() : user?.id;
+    return playerUserId !== currentUserId;
+  });
   const isCurrentUserTurn = game?.currentPlayer === currentUserPlayer?.symbol;
   const isGameActive = game?.gameStatus === 'playing';
   const isGameFinished = game?.gameStatus === 'finished';
@@ -39,11 +48,33 @@ const GameBoard = () => {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Handle cell click
+  // Handle cell click with better validation
   const handleCellClick = (position) => {
-    if (!isGameActive || !isCurrentUserTurn || game.board[position] !== '') {
+    console.log('Cell clicked:', {
+      position,
+      isGameActive,
+      isCurrentUserTurn,
+      currentPlayer: game?.currentPlayer,
+      currentUserPlayer,
+      cellValue: game?.board[position]
+    });
+
+    if (!isGameActive) {
+      console.log('Game not active:', game?.gameStatus);
       return;
     }
+    
+    if (!isCurrentUserTurn) {
+      console.log('Not your turn. Current player:', game?.currentPlayer, 'Your symbol:', currentUserPlayer?.symbol);
+      return;
+    }
+    
+    if (game.board[position] !== '') {
+      console.log('Cell already occupied:', game.board[position]);
+      return;
+    }
+    
+    console.log('Making move at position:', position);
     makeMove(position);
   };
 
@@ -54,7 +85,7 @@ const GameBoard = () => {
     try {
       await navigator.clipboard.writeText(inviteCode);
       showNotification('Invite code copied to clipboard!', 'success');
-    } catch (error) {
+    } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = inviteCode;
