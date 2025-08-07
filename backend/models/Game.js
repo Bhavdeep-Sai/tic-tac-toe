@@ -53,6 +53,29 @@ const gameSchema = new mongoose.Schema({
     position: Number,
     timestamp: Date
   }],
+  // Enhanced game result tracking
+  gameResult: {
+    winner: {
+      type: String,
+      enum: ['X', 'O', 'draw', null],
+      default: null
+    },
+    winnerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false
+    },
+    winnerUsername: String,
+    totalMoves: {
+      type: Number,
+      default: 0
+    },
+    gameEndReason: {
+      type: String,
+      enum: ['normal', 'forfeit', 'timeout'],
+      default: 'normal'
+    }
+  },
   isPrivate: {
     type: Boolean,
     default: false

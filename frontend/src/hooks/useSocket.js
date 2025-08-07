@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
+import io from 'socket.io-client';
 
-export const useSocket = (userId) => {
+const useSocket = (userId) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Always connect, even for guest users
     if (!userId) return;
 
     const newSocket = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:5000', {
@@ -16,16 +15,13 @@ export const useSocket = (userId) => {
 
     newSocket.on('connect', () => {
       setIsConnected(true);
-      console.log('Socket connected:', newSocket.id);
       
-      // Check if user is guest
-      const isGuest = userId.startsWith('guest_');
-      const token = localStorage.getItem('token');
+      const isGuestUser = userId.startsWith('guest_');
+      const authToken = localStorage.getItem('token');
       
-      if (token && !isGuest) {
-        newSocket.emit('authenticate', token);
-      } else if (isGuest) {
-        // For guest users, emit guest authentication
+      if (authToken && !isGuestUser) {
+        newSocket.emit('authenticate', authToken);
+      } else if (isGuestUser) {
         newSocket.emit('authenticate_guest', {
           userId: userId,
           username: 'Guest'
@@ -35,24 +31,22 @@ export const useSocket = (userId) => {
 
     newSocket.on('disconnect', () => {
       setIsConnected(false);
-      console.log('Socket disconnected');
     });
 
-    newSocket.on('authenticated', (data) => {
-      console.log('Socket authenticated:', data);
+    newSocket.on('authenticated', () => {
+      // Authentication successful for registered users
     });
 
-    newSocket.on('guest_authenticated', (data) => {
-      console.log('Guest authenticated:', data);
+    newSocket.on('guest_authenticated', () => {
+      // Authentication successful for guest users
     });
 
-    newSocket.on('auth_error', (error) => {
-      console.error('Socket auth error:', error);
+    newSocket.on('auth_error', () => {
+      // Authentication failed
     });
 
-    // Handle connection errors
-    newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+    newSocket.on('connect_error', () => {
+      // Connection failed
     });
 
     newSocket.connect();
@@ -67,3 +61,5 @@ export const useSocket = (userId) => {
 
   return { socket, isConnected };
 };
+
+export default useSocket;

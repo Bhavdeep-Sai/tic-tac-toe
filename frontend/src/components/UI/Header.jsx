@@ -20,15 +20,13 @@ const Header = () => {
       }
       
       
-      // Then logout
       logout();
       setShowUserMenu(false);
       setShowMobileMenu(false);
       
-      // Navigate to login
-      navigate('/login', { replace: true });
-    } catch (error) {
-      console.error('Error during logout:', error);
+      navigate('/login');
+    } catch {
+      // Handle logout error silently
     }
   };
 
@@ -43,8 +41,8 @@ const Header = () => {
       }
       
       navigate(path);
-    } catch (error) {
-      console.error('Navigation error:', error);
+    } catch {
+      // Handle navigation error silently
     }
   };
 
@@ -108,13 +106,6 @@ const Header = () => {
 
           {/* Right side - User info and actions */}
           <div className="flex items-center space-x-4">
-            {/* Connection Status */}
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm text-gray-600 hidden sm:block">
-                {isConnected ? 'Online' : 'Offline'}
-              </span>
-            </div>
 
             {/* User Profile */}
             {user && (

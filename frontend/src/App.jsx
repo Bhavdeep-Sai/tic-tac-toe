@@ -33,7 +33,7 @@ function AppContent() {
           />
           <Route 
             path="/" 
-            element={isAuthenticated ? <Matchmaking /> : <Navigate to="/register" />} 
+            element={isAuthenticated ? <Matchmaking /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/game" 

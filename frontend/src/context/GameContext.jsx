@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useSocket } from '../hooks/useSocket';
+import useSocket from '../hooks/useSocket';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 
@@ -31,15 +31,14 @@ export const GameProvider = ({ children }) => {
     socket.on('room_created', (data) => {
       setGame(data.game);
       setRoomId(data.roomId);
-      // Generate invite code from room ID (you can make this more sophisticated)
-      const code = data.roomId.substring(0, 8).toUpperCase();
-      setInviteCode(code);
+      const inviteCodeFromRoomId = data.roomId.substring(0, 8).toUpperCase();
+      setInviteCode(inviteCodeFromRoomId);
       toast.success('Room created successfully!');
     });
 
     socket.on('game_started', (data) => {
       setGame(data.game);
-      setRematchRequest(null); // Clear rematch request on new game
+      setRematchRequest(null);
       toast.success('Game started!');
     });
 
@@ -47,7 +46,7 @@ export const GameProvider = ({ children }) => {
       setGame(data.game);
       setRoomId(data.roomId);
       setIsInQueue(false);
-      setRematchRequest(null); // Clear rematch request on new match
+      setRematchRequest(null);
       toast.success('Match found!');
     });
 

@@ -10,8 +10,6 @@ const matchmakingQueue = [];
 
 const gameSocket = (io) => {
   io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
-
     // Authenticate socket connection for regular users
     socket.on("authenticate", async (token) => {
       try {
@@ -188,7 +186,6 @@ const gameSocket = (io) => {
 
         activeGames.set(roomId, game);
       } catch (error) {
-        console.error("Join room error:", error);
         socket.emit("error", { message: "Failed to join room" });
       }
     });
@@ -267,6 +264,18 @@ const gameSocket = (io) => {
             gameUpdate.winner = game.winner;
             gameUpdate.winningCombination = game.winningCombination;
             gameUpdate.finishedAt = game.finishedAt;
+            
+            // Store enhanced game result information
+            const winnerPlayer = game.winner !== 'draw' ? 
+              game.players.find(p => p.symbol === game.winner) : null;
+            
+            gameUpdate.gameResult = {
+              winner: game.winner,
+              winnerUserId: winnerPlayer && !winnerPlayer.isGuest ? winnerPlayer.userId : null,
+              winnerUsername: winnerPlayer ? winnerPlayer.username : null,
+              totalMoves: game.moves ? game.moves.length : 0,
+              gameEndReason: 'normal'
+            };
           }
           
           await Game.findOneAndUpdate({ roomId }, gameUpdate);
@@ -460,8 +469,6 @@ const gameSocket = (io) => {
 
     // Handle disconnection
     socket.on("disconnect", async () => {
-      console.log("User disconnected:", socket.id);
-
       // Remove from matchmaking queue
       const queueIndex = matchmakingQueue.findIndex(
         (p) => p.socketId === socket.id
@@ -529,9 +536,22 @@ const gameSocket = (io) => {
         // Update player stats
         await updatePlayerStats(game.players, opponent.symbol, player.userId);
 
-        // Update database
+        // Update database with enhanced game result
         if (!socket.isGuest) {
-          await Game.findOneAndUpdate({ roomId }, game);
+          const gameUpdate = {
+            gameStatus: game.gameStatus,
+            winner: game.winner,
+            finishedAt: game.finishedAt,
+            forfeitedBy: game.forfeitedBy,
+            gameResult: {
+              winner: game.winner,
+              winnerUserId: opponent && !opponent.isGuest ? opponent.userId : null,
+              winnerUsername: opponent ? opponent.username : null,
+              totalMoves: game.moves ? game.moves.length : 0,
+              gameEndReason: 'forfeit'
+            }
+          };
+          await Game.findOneAndUpdate({ roomId }, gameUpdate);
         }
 
         activeGames.set(roomId, game);

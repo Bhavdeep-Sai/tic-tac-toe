@@ -64,7 +64,6 @@ router.post('/register', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Registration error:', error);
     res.status(500).json({ error: 'Server error during registration' });
   }
 });
@@ -114,7 +113,6 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
     res.status(500).json({ error: 'Server error during login' });
   }
 });
@@ -128,7 +126,6 @@ router.get('/profile', auth, async (req, res) => {
     }
     res.json(user);
   } catch (error) {
-    console.error('Profile fetch error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -214,7 +211,6 @@ router.put('/update-profile', auth, async (req, res) => {
       user: updatedUser
     });
   } catch (error) {
-    console.error('Update profile error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -230,7 +226,6 @@ router.post('/logout', auth, async (req, res) => {
 
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
-    console.error('Logout error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -270,8 +265,7 @@ await friend.save();
 
 res.json({ message: 'Friend added successfully' });
 } catch (error) {
-console.error('Add friend error:', error);
-res.status(500).json({ error: 'Server error' });
+  res.status(500).json({ error: 'Server error' });
 }
 });
 

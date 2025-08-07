@@ -63,7 +63,6 @@ router.get('/', async (req, res) => {
       total: leaderboard.length
     });
   } catch (error) {
-    console.error('Leaderboard error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch leaderboard' });
   }
 });
@@ -130,7 +129,6 @@ router.get('/rank', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('User rank error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
