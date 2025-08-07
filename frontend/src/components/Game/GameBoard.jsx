@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -106,20 +106,22 @@ const GameBoard = () => {
 
   // Handle rematch request
   const handleRequestRematch = () => {
-    requestRematch();
-    showNotification('Rematch requested!', 'info');
+    if (!isRematchRequested) {
+      requestRematch();
+      // Notification is handled by GameContext
+    }
   };
 
   // Handle accept rematch
   const handleAcceptRematch = () => {
     acceptRematch();
-    showNotification('Rematch accepted!', 'success');
+    // Notification is handled by GameContext
   };
 
   // Handle decline rematch
   const handleDeclineRematch = () => {
     declineRematch();
-    showNotification('Rematch declined', 'info');
+    // Notification is handled by GameContext
   };
 
   // Get cell classes based on state
@@ -459,20 +461,22 @@ const GameBoard = () => {
                   </div>
                 )}
                 
-                {game.gameStatus === 'finished' && game.winner && (
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-                    <h3 className="text-lg font-bold text-green-800 mb-2">🎉 Game Over!</h3>
-                    <p className="text-green-700">
-                      {game.winner === currentUserPlayer?.symbol ? 'Congratulations! You won!' : `${opponent?.username} wins!`}
-                    </p>
-                  </div>
-                )}
-                
-                {game.gameStatus === 'finished' && !game.winner && (
-                  <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-4">
-                    <h3 className="text-lg font-bold text-gray-700 mb-2">🤝 It's a Tie!</h3>
-                    <p className="text-gray-600">Great game! Well played by both players.</p>
-                  </div>
+                {game.gameStatus === 'finished' && (
+                  <>
+                    {game.winner && game.winner !== 'draw' ? (
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                        <h3 className="text-lg font-bold text-green-800 mb-2"> Game Over!</h3>
+                        <p className="text-green-700">
+                          {game.winner === currentUserPlayer?.symbol ? 'Congratulations! You won!' : `${opponent?.username} wins!`}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-4">
+                        <h3 className="text-lg font-bold text-gray-700 mb-2"> It's a Tie!</h3>
+                        <p className="text-gray-600">Great game! Well played by both players.</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
